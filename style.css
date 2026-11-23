@@ -1,3 +1,5 @@
+/* [가계부앱] 2026-11-23 : 글꼴은 리디바탕. 저작권 리디주식회사, SIL Open Font License 1.1 (무료 사용·재배포 가능, 글꼴 자체의 유료 판매 금지) */
+@font-face { font-family: RIDIBatang; src: url(vendor/RIDIBatang.woff) format('woff'); font-display: swap; }
 /* [가계부앱] 2026-11-20 : 화면 스타일 (폰 세로 기준, 다크 모드는 기기 설정을 따름) */
 /* [가계부앱] 2026-11-23 : 색 계열을 붉은 주황으로 변경, 화면 전환용 입력 폼·달력·월별·예산·필터·자산 상세 스타일 추가 */
 :root {
@@ -9,7 +11,7 @@
   :root { --bg: #131417; --card: #1d1f23; --line: #2e3136; --text: #e8eaed; --sub: #8f949b; --accent: #ff7067; --in: #6aaef0; --out: #ff8a70; --soft: #3a2422; }
 }
 * { box-sizing: border-box; }
-body { margin: 0 auto; max-width: 560px; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, sans-serif; padding-bottom: 72px; }
+body { margin: 0 auto; max-width: 560px; background: var(--bg); color: var(--text); font: 16px/1.4 RIDIBatang, system-ui, sans-serif; padding-bottom: 72px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button, select { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .pri { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -240,3 +242,7 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 .alist li > .ic.del { color: #fff; display: block; } .glist > b .ic { display: inline; width: auto; border: 0; padding: 0 0 0 12px; font-size: 18px; }
 .mgrid svg { width: 32px; height: 32px; stroke-width: 1.6; color: #555; } .mgrid button { gap: 14px; padding: 30px 4px; }
 @media (prefers-color-scheme: dark) { .mgrid svg { color: #bbb; } }
+/* [가계부앱] 2026-11-23 : 화면 전체를 조금 작게(글자와 간격이 같이 줄어든다). 숫자를 1 에 가깝게 하면 커진다 */
+:root { zoom: .94; }
+/* 반복/할부를 날짜 옆 작은 버튼에서 한 줄짜리 칸으로 */
+.fld.rep2 { color: var(--sub); } .fld.rep2.on { color: var(--accent); border-bottom: 1px solid var(--line); } .menu:not(.amenu) { top: 232px; }
