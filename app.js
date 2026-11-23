@@ -307,7 +307,8 @@ function sheet(pg) {
   const cell = (v, label = v, on = false) => `<button type="button" data-act="choose" data-arg="${esc(v)}"${on ? ' class="on"' : ''}>${esc(label)}</button>`;
   let title, body;
   if (k === 'date' || k === 'time') { // 가운데 뜨는 창. pg.tmp 에 고르는 중인 값을 두고 확인을 누르면 반영
-    const d = pg.tmp.slice(0, 10), foot = '<div class="df"><button type="button" data-act="sheet" data-arg="">취소</button><button type="button" data-act="pickOk">확인</button></div>';
+    // [가계부앱] 2026-11-23 : 날짜는 누르면 바로 반영하고 닫으므로 확인/취소 줄 없음 (바깥을 누르면 닫힘). 시간만 확인
+    const d = pg.tmp.slice(0, 10), foot = k === 'date' ? '' : '<div class="df"><button type="button" data-act="sheet" data-arg="">취소</button><button type="button" data-act="pickOk">확인</button></div>';
     let inner;
     if (k === 'date') {
       const ym = pg.calYm ||= d.slice(0, 7), first = ym + '-01', td = today();
@@ -371,8 +372,6 @@ function pageTx(pg) {
   t.asset ||= names[0];
   if (tr && !t.cat) t.cat = names.find(n => n !== t.asset) || ''; // 입금 기본값이 출금과 같지 않게
   const fa = S.assets.find(a => a.name === t.asset);
-  const notes = [...new Set([...S.tx].sort(desc).slice(0, 300).map(x => x.note).filter(Boolean))];
-  const dl = (id, arr) => `<datalist id="${id}">${arr.map(x => `<option value="${esc(x)}">`).join('')}</datalist>`;
   const row = (label, inner) => `<label class="frow"><span>${label}</span>${inner}</label>`;
   const fld = (k, text) => `<button type="button" class="fld${pg.pick === k ? ' on' : ''}" data-act="sheet" data-arg="${k}">${esc(text) || '&nbsp;'}</button>`;
   const prow = (label, k, text) => `<div class="frow"><span>${label}</span>${fld(k, text)}</div>`;
@@ -386,7 +385,7 @@ function pageTx(pg) {
     ${tr && !t.id ? `<div class="frow"><span>금액</span>${money('amt', t.amt)}<button type="button" class="mini" data-act="feeTog">수수료</button></div>${pg.fee || t.fee ? row('수수료', money('fee', t.fee, '출금 자산에서 지출로 잡힘')) : ''}` : row('금액', money('amt', t.amt))}
     ${tr ? prow('출금', 'asset', t.asset) + prow('입금', 'cat', t.cat) : prow('분류', 'cat', t.sub ? `${t.cat} / ${t.sub}` : t.cat) + prow('자산', 'asset', t.asset)
       + (isFx(fa) ? row(`${esc(fa.cur)} 금액`, `<input type="number" step="any" inputmode="decimal" name="famt" value="${t.famt || ''}" data-rate="${fa.rate}" placeholder="넣으면 환율 ${fa.rate} 로 원화 계산">`) : '')}
-    ${row('내용', txt('note', 'list="dl-note"'))}${dl('dl-note', notes)}
+    ${row('내용', txt('note', 'autocomplete="off" data-sug') + '<ul class="sug" hidden></ul>')}
     <div class="gap"></div>
     ${row('메모', `<textarea name="memo" rows="2">${esc(t.memo)}</textarea>`)}
     ${t.type === '지출' ? `<label class="chk"><input type="checkbox" name="noPerf"${t.noPerf ? ' checked' : ''}>카드 실적에서 제외</label>` : ''}
@@ -999,6 +998,7 @@ const ACT = {
       if (v.startsWith('ap:')) pg.tmp = `${pg.tmp.slice(0, 11)}${String(Number(pg.tmp.slice(11, 13)) % 12 + (v === 'ap:오후' ? 12 : 0)).padStart(2, '0')}${pg.tmp.slice(13)}`;
       else pg.tmp = v === 'now' ? nowTs() : v + pg.tmp.slice(10);
       pg.calYm = pg.tmp.slice(0, 7);
+      if (k === 'date') { pg.dirty ||= pg.t.ts !== pg.tmp; t.ts = pg.tmp; pg.pick = ''; } // [가계부앱] 2026-11-23 : 날짜는 고르면 즉시 반영
     } else if (k === 'cat' && !tr) { // 분류 선택판의 오른쪽(소분류)을 누른 경우
       t.cat = pg.pcat; t.sub = v; pg.pcat = undefined; pg.pick = 'asset'; pg.dirty = true;
     }
@@ -1109,6 +1109,26 @@ const CHANGE = {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (el) { e.stopPropagation(); ACT[el.dataset.act](el.dataset.arg); }
+});
+// [가계부앱] 2026-11-23 : 내용 칸 이전 입력 추천. 최근 내역의 내용 중 친 글자(초성 포함)가 든 것. datalist 대신 직접 그려서 브라우저 자동완성 막대가 안 뜨게
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const cho = c => { const n = c.charCodeAt(0) - 0xac00; return n >= 0 && n < 11172 ? CHO[Math.floor(n / 588)] : c; };
+const sugMatch = (note, q) => { for (let i = 0; i + q.length <= note.length; i++) if ([...q].every((c, j) => c === note[i + j] || (CHO.includes(c) && cho(note[i + j]) === c))) return true; return false; };
+const sugShow = el => {
+  const q = el.value.trim(), ul = el.parentElement.querySelector('.sug');
+  const list = q ? [...new Set([...S.tx].sort(desc).map(x => x.note).filter(Boolean))].filter(n => n !== q && sugMatch(n, q)).slice(0, 8) : [];
+  ul.innerHTML = list.map(n => `<li>${esc(n)}</li>`).join('');
+  ul.hidden = !list.length;
+};
+for (const ev of ['input', 'focusin']) document.addEventListener(ev, e => { if (e.target.dataset && 'sug' in e.target.dataset) sugShow(e.target); });
+document.addEventListener('focusout', e => { if (e.target.dataset && 'sug' in e.target.dataset) e.target.parentElement.querySelector('.sug').hidden = true; });
+document.addEventListener('pointerdown', e => { // 누르는 순간 반영 (focusout 으로 목록이 먼저 닫히지 않게 기본 동작 막음)
+  const li = e.target.closest?.('.sug li'); if (!li) return;
+  e.preventDefault();
+  const el = li.closest('.frow').querySelector('[data-sug]');
+  el.value = li.textContent;
+  el.dispatchEvent(new Event('input', { bubbles: true })); // 수정 표시(dirty) 갱신
+  li.parentElement.hidden = true;
 });
 document.addEventListener('submit', e => {
   e.preventDefault();

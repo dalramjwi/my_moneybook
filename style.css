@@ -260,3 +260,9 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 .alist .ic.sm { display: flex; align-items: center; justify-content: center; padding: 0; } .alist .ic.sm svg { width: 12px; height: 12px; stroke-width: 2; display: block; }
 /* 루틴 · 할 일 목록은 글이 길면 줄을 바꿔 다 보여 준다 */
 .list.wrap .m b { white-space: normal; overflow: visible; } .list.wrap .c { width: 86px; } .form textarea[name="text"] { resize: none; line-height: 1.4; }
+
+/* [가계부앱] 2026-11-23 : 내용 칸 이전 입력 추천 목록 (입력칸 바로 아래) */
+.form .frow:has(.sug) { position: relative; }
+.sug { position: absolute; left: 94px; right: 0; top: 100%; z-index: 20; margin: 2px 0 0; padding: 4px 0; list-style: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.12); max-height: 40vh; overflow-y: auto; }
+.sug li { padding: 10px 12px; font-size: 15px; color: var(--text); cursor: pointer; }
+.sug li:active { background: var(--soft); }
