@@ -243,6 +243,6 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 .mgrid svg { width: 32px; height: 32px; stroke-width: 1.6; color: #555; } .mgrid button { gap: 14px; padding: 30px 4px; }
 @media (prefers-color-scheme: dark) { .mgrid svg { color: #bbb; } }
 /* [가계부앱] 2026-11-23 : 화면 전체를 조금 작게(글자와 간격이 같이 줄어든다). 숫자를 1 에 가깝게 하면 커진다 */
-:root { zoom: .94; }
+:root { zoom: .88; }
 /* 반복/할부를 날짜 옆 작은 버튼에서 한 줄짜리 칸으로 */
 .fld.rep2 { color: var(--sub); } .fld.rep2.on { color: var(--accent); border-bottom: 1px solid var(--line); } .menu:not(.amenu) { top: 232px; }
