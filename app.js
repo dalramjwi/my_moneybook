@@ -161,7 +161,7 @@ function assetRoutines() {
     if (a.deleted) continue;
     const g = a.group, add = (key, text, r) => out.push({ id: `${key}:${a.name}`, text, since: a.rtSince || today(), done: a.rtDone?.[key], ...r });
     if (isCard(a)) {
-      add('p', `${a.name} 결제일`, { every: 'month', day: a.payDay || 1 });
+      if (a.payDay) add('p', `${a.name} 결제일`, { every: 'month', day: a.payDay });
       if (a.annualFee && a.annualMonth) add('f', `${a.name} 연회비 ${won(a.annualFee)}`, { every: 'year', month: a.annualMonth });
     } else if (/저축|대출|마이너스|보험/.test(g) && a.dueDay) add('d', `${a.name} ${g === '저축' ? '납입' : g === '보험' ? '보험료' : '상환'}${a.monthly ? ' ' + won(a.monthly) : ''}`, { every: 'month', day: a.dueDay, until: a.endDate });
   }
@@ -355,6 +355,7 @@ const ICON = {
   eye: svg('<path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="3"/>'),
   eyeOff: svg('<path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/>'),
   coins: svg('<ellipse cx="15" cy="6.5" rx="5.5" ry="2.5"/><path d="M9.5 6.5V9M20.5 6.5v7c0 1-1.3 1.9-3.3 2.3M20.5 10c0 1-1.3 1.9-3.3 2.3"/><ellipse cx="9.5" cy="12.5" rx="5.5" ry="2.5"/><path d="M4 12.5v6c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-6M4 15.5C4 16.9 6.5 18 9.500 18s5.500-1.100 5.500-2.500"/>'.replace(/00/g, '')),
+  chat: svg('<path d="M4 5h16v11H9.5L5 19.5V16H4z"/><path d="M8 9.300h8M8 12.300h5"/>'.replace(/00/g, '')),
   gear: svg('<g transform="translate(1.4 1.4) scale(.883)"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></g>'),
   undo: svg('<path d="M3.6 4.2l1.1 5.4 5.3-1.3zM5.3 8.6A8.2 8.2 0 1 1 7.3 18.9"/>'),
   todo: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12.5l3 3 5-6"/>'),
@@ -588,6 +589,7 @@ function assetFacts(a, bal, L) {
     if (a.monthly || a.dueDay) f.push(`${a.monthly ? '월 보험료 ' + won(a.monthly) : '보험료'}${a.dueDay ? ` · 매월 ${a.dueDay}일` : ''}`);
     if (a.endDate) f.push(`만기 ${a.endDate} (${dday(a.endDate)})`);
   }
+  if (a.goal > 0) f.push(bal >= a.goal ? `목표 ${won(a.goal)} 달성` : `목표 ${won(a.goal)} 중 ${Math.floor(Math.max(0, bal) / a.goal * 100)}% · ${won(a.goal - Math.max(0, bal))} 남음`);
   return f.length ? `<p class="facts">${f.map(x => `<span>${esc(x)}</span>`).join('')}</p>` : '';
 }
 
@@ -654,6 +656,7 @@ function pageAssetInfo(pg) {
     ${a.group.includes('카드') && !/선불/.test(a.group) ? row('결제', `<select name="payFrom"><option value=""></option>${banks.map(x => `<option${x.name === a.payFrom ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>`) : ''}
     ${row('메모', `<textarea name="memo" rows="${Math.max(1, (a.memo || '').split('\n').length)}">${esc(a.memo || '')}</textarea>`)}
     ${name ? '<p class="cap ind">금액을 바꾸면 차액이 "잔액수정" 내역으로 들어갑니다.</p>' : ''}
+    ${/은행|저축|투자/.test(g) ? row('목표 금액', money('goal', a.goal || '', '없으면 비워 두기')) : ''}
     ${card ? `<div class="gap"></div>
       ${row('정산일', `<input inputmode="numeric" autocomplete="off" data-unit=" 일" name="settleDay" value="${sDay} 일">`)}
       ${row('결제일', `<input inputmode="numeric" autocomplete="off" data-unit=" 일" name="payDay" value="${pDay} 일">`)}
@@ -691,7 +694,7 @@ function saveAsset(v) {
   Object.assign(cur, { name, group: v.group, inTotal: !!v.inTotal, hidden: !!v.hidden, xfer: !!v.xfer, memo: (v.memo ?? cur.memo ?? '').trim(), perf: Math.round(toNum(v.perf ?? cur.perf)) || 0, payFrom: v.payFrom ?? cur.payFrom ?? '', settleDay: Math.min(31, Math.round(toNum(v.settleDay ?? cur.settleDay)) || 1), payDay: Math.min(31, Math.round(toNum(v.payDay ?? cur.payDay)) || 1),
     annualFee: Math.round(toNum(v.annualFee ?? cur.annualFee)) || 0, annualMonth: Math.min(12, Math.round(toNum(v.annualMonth ?? cur.annualMonth)) || 0),
     irate: Number(v.irate ?? cur.irate) || 0, startDate: v.startDate ?? cur.startDate ?? '', endDate: v.endDate ?? cur.endDate ?? '', monthly: Math.round(toNum(v.monthly ?? cur.monthly)) || 0,
-    dueDay: Math.min(31, Math.round(toNum(v.dueDay ?? cur.dueDay)) || 0), limit: Math.round(toNum(v.limit ?? cur.limit)) || 0, rtSince: cur.rtSince || today(),
+    dueDay: Math.min(31, Math.round(toNum(v.dueDay ?? cur.dueDay)) || 0), goal: Math.round(toNum(v.goal ?? cur.goal)) || 0, limit: Math.round(toNum(v.limit ?? cur.limit)) || 0, rtSince: cur.rtSince || today(),
     cur: (v.cur ?? cur.cur ?? '').trim().toUpperCase(), rate: Number(v.rate ?? cur.rate) || 0 });
   if (a && name !== v.orig) {
     for (const t of [...S.tx, ...S.favs, ...S.repeats.map(r => r.tpl)]) { // 이름을 바꾸면 내역의 자산 이름도 같이 바꾼다
@@ -762,7 +765,73 @@ const EVERY = { day: '매일', weekday: '주중', weekend: '주말', week: '매�
 const menuList = items => `<ul class="list alist">${items.map(([label, act, arg = '', right = '']) => `<li data-act="${act}" data-arg="${arg}"><span class="m"><b>${label}</b></span>${right ? `<span class="a out">${right}</span>` : ''}</li>`).join('')}</ul>`;
 const viewMore = () => `<header><b>설정</b></header>
   <p class="cap pad">내역 ${num(S.tx.length)}건 · 자산 ${S.assets.filter(a => !a.deleted).length}개. 데이터는 이 기기에만 저장됩니다.</p>
-  <div class="mgrid">${[['setMgmt', '설정관리', ICON.gear], ['backup', '백업/복원', ICON.undo], ['routines', '루틴 · 할 일', ICON.todo], ['budgetSet', '예산 설정', ICON.budget], ['repeats', '반복 내역', ICON.rep], ['favs', '자주 사용', ICON.star]].map(([k, l, ic]) => `<button data-act="go" data-arg="${k}">${ic}<span>${l}</span></button>`).join('')}</div>`;
+  <div class="mgrid">${[['setMgmt', '설정관리', ICON.gear], ['backup', '백업/복원', ICON.undo], ['routines', '루틴 · 할 일', ICON.todo], ['budgetSet', '예산 설정', ICON.budget], ['repeats', '반복 내역', ICON.rep], ['feedback', '피드백', ICON.chat]].map(([k, l, ic]) => `<button data-act="go" data-arg="${k}">${ic}<span>${l}</span></button>`).join('')}</div>`;
+// [가계부앱] 2026-11-23 : 피드백. 고른 달의 내역을 규칙으로 따져 예산 속도·초과 분류·평소 대비·잦은 소액·저축·목표·카드 실적을 문장으로 알려 준다
+// ponytail: 기준 숫자(저축률 10%·30%, 평소의 1.5배, 3만 원 차이)는 코드에 박아 뒀다. 사람마다 바꾸고 싶어지면 설정으로 뺀다
+function pageFeedback(pg) {
+  pg.ym ||= today().slice(0, 7);
+  const ym = pg.ym, t = today(), cur = ym === t.slice(0, 7), N = Number(Core.monthEnd(ym).slice(8)), d = cur ? Number(t.slice(8)) : N, past = ym < t.slice(0, 7);
+  const list = S.tx.filter(x => x.ts.startsWith(ym)), sums = Core.periodSums(S.tx, ym), exp = list.filter(x => x.type === '지출'), bal = Core.balances(S);
+  const out = [], add = (lvl, title, text) => out.push(`<li class="fb ${lvl}"><b>${title}</b><p>${text}</p></li>`), man = v => (Math.abs(v) >= 10000 ? (Math.round(v / 1000) / 10).toLocaleString('ko-KR') + '만 원' : won(v));
+  if (!list.length) return `${head('피드백', monthNav('pmonth', ymLabel(ym)))}<p class="empty">이 달에는 내역이 없습니다.</p>`;
+
+  // 1. 총평
+  const left = sums.income - sums.expense;
+  add(left >= 0 ? 'good' : 'bad', '이번 달 흐름', `수입 ${man(sums.income)}, 지출 ${man(sums.expense)}. ${left >= 0 ? `${man(left)} 남았습니다.` : `수입보다 ${man(-left)} 더 썼습니다.`}`);
+
+  // 2. 예산 속도
+  const rows = Core.budgetRows(S, ym), tot = rows[0];
+  if (tot.budget > 0) {
+    const proj = Math.round(tot.spent / d * N), big = [...exp].sort((x, y) => y.amt - x.amt)[0];
+    const bigNote = big && big.amt >= tot.spent * 0.3 ? ` 가장 큰 지출은 "${esc(big.note || big.cat)}" ${man(big.amt)}으로 전체의 ${Math.round(big.amt / tot.spent * 100)}%입니다.` : '';
+    if (tot.spent > tot.budget) add('bad', '예산 초과', `전체 예산 ${man(tot.budget)} 중 ${man(tot.spent)}을 써서 ${man(tot.spent - tot.budget)} 넘었습니다 (${Math.floor(tot.spent / tot.budget * 100)}%).${bigNote}`);
+    else if (cur && proj > tot.budget) add('warn', '예산 속도가 빠릅니다', `${d}일 동안 ${man(tot.spent)}을 썼습니다. 이 속도면 월말에 약 ${man(proj)}이 되어 예산을 ${man(proj - tot.budget)} 넘습니다. 남은 ${N - d}일 동안 하루 ${man(Math.max(0, Math.floor((tot.budget - tot.spent) / Math.max(1, N - d))))} 안으로 쓰면 맞출 수 있습니다.${bigNote}`);
+    else add('good', '예산 안에서 쓰는 중', `전체 예산의 ${Math.floor(tot.spent / tot.budget * 100)}%를 썼습니다.${cur && N > d ? ` 남은 ${N - d}일 동안 하루 ${man(Math.floor((tot.budget - tot.spent) / (N - d)))}씩 쓸 수 있습니다.` : ''}`);
+  }
+
+  // 3. 분류별 예산
+  const over = rows.slice(1).filter(r => r.budget > 0 && r.spent > r.budget).sort((x, y) => (y.spent - y.budget) - (x.spent - x.budget));
+  const near = rows.slice(1).filter(r => r.budget > 0 && r.spent <= r.budget && r.spent >= r.budget * 0.8);
+  if (over.length) add('bad', `예산을 넘긴 분류 ${over.length}개`, over.map(r => `${esc(r.cat)} ${Math.floor(r.spent / r.budget * 100)}% (${man(r.spent - r.budget)} 초과)`).join('<br>'));
+  if (cur && near.length) add('warn', '예산이 거의 찬 분류', near.map(r => `${esc(r.cat)} ${Math.floor(r.spent / r.budget * 100)}% (${man(r.budget - r.spent)} 남음)`).join('<br>'));
+  const cs = Core.catSums(list, '지출'), noBud = cs.filter(([c]) => S.budgets[c] == null).slice(0, 3);
+  if (noBud.length && tot.budget > 0) add('info', '예산이 없는 분류에서 쓴 돈', noBud.map(([c, v]) => `${esc(c)} ${man(v)}`).join('<br>') + '<br>자주 쓰는 분류면 예산 설정에서 예산을 넣어 두세요.');
+
+  // 4. 평소(직전 3개월 평균) 대비
+  const prev = [1, 2, 3].map(n => Object.fromEntries(Core.catSums(S.tx.filter(x => x.ts.startsWith(Core.shiftYm(ym, -n))), '지출'))), avg = c => prev.reduce((x, m) => x + (m[c] || 0), 0) / 3;
+  const scale = cur ? d / N : 1, up = cs.filter(([c, v]) => v >= avg(c) * scale * 1.5 && v - avg(c) * scale >= 30000 && avg(c) > 0), down = Object.keys(prev[0]).filter(c => !cur && avg(c) >= 30000 && (Object.fromEntries(cs)[c] || 0) <= avg(c) * 0.5);
+  if (up.length) add('warn', '평소보다 많이 쓴 분류', up.slice(0, 4).map(([c, v]) => `${esc(c)} ${man(v)} (최근 3개월 평균 ${man(avg(c))}${cur ? ', 오늘까지 기준으로 환산해 비교' : ''})`).join('<br>'));
+  if (down.length) add('good', '평소보다 줄인 분류', down.slice(0, 4).map(c => `${esc(c)} ${man(Object.fromEntries(cs)[c] || 0)} (평균 ${man(avg(c))})`).join('<br>'));
+  if (cs.length) add('info', '많이 쓴 분류', cs.slice(0, 3).map(([c, v]) => `${esc(c)} ${man(v)} (${Math.round(v / sums.expense * 100)}%)`).join('<br>'));
+
+  // 5. 잦은 소액
+  const byNote = {}; for (const x of exp) if (x.note && x.amt < 30000) { const o = byNote[x.note] ||= { n: 0, s: 0 }; o.n++; o.s += x.amt; }
+  const small = Object.entries(byNote).filter(([, o]) => o.n >= 3).sort((x, y) => y[1].s - x[1].s).slice(0, 3);
+  if (small.length) add('info', '잦은 소액 지출', small.map(([k, o]) => `${esc(k)} ${o.n}번, 합계 ${man(o.s)}`).join('<br>'));
+
+  // 6. 저축 : 저축·투자 그룹 자산으로 옮긴 돈 - 거기서 꺼낸 돈
+  const sv = name => /저축|투자/.test(S.assets.find(a => a.name === name)?.group || '');
+  const saved = list.filter(x => x.type === '이체').reduce((s, x) => s + (sv(x.cat) && !sv(x.asset) ? x.amt : 0) - (sv(x.asset) && !sv(x.cat) ? x.amt : 0), 0);
+  if (sums.income > 0) {
+    const rate = Math.round(saved / sums.income * 100);
+    if (saved <= 0) add('bad', '저축이 없습니다', `이번 달 저축·투자 자산으로 옮긴 돈보다 꺼낸 돈이 ${man(-saved)} 많습니다.`);
+    else if (rate < 10) add('warn', '저축을 더 해야 합니다', `저축·투자로 ${man(saved)}을 옮겼습니다. 수입의 ${rate}%입니다. 수입의 10%인 ${man(sums.income * 0.1)}까지 ${man(sums.income * 0.1 - saved)} 더 필요합니다.`);
+    else add(rate >= 30 ? 'good' : 'info', `저축률 ${rate}%`, `저축·투자로 ${man(saved)}을 옮겼습니다.${rate >= 30 ? ' 수입의 30%를 넘겼습니다.' : ` 수입의 30%인 ${man(sums.income * 0.3)}까지 ${man(sums.income * 0.3 - saved)} 남았습니다.`}`);
+  }
+
+  // 7. 목표 금액
+  const goals = S.assets.filter(a => !a.deleted && a.goal > 0);
+  if (goals.length) add('info', '목표', goals.map(a => { const b = Math.max(0, bal[a.name] || 0), p = Math.floor(b / a.goal * 100); return `${esc(a.name)} : ${p >= 100 ? '달성' : `${p}% · 목표까지 ${100 - p}% (${man(a.goal - b)}) 남음`}`; }).join('<br>'));
+
+  // 8. 카드 실적
+  const cards = S.assets.filter(a => !a.deleted && isCard(a) && a.perf > 0).map(a => [a, perfOf(a, ym)]);
+  const short = cards.filter(([a, p]) => p < a.perf);
+  if (short.length && !past) add('warn', '카드 실적이 남았습니다', short.map(([a, p]) => `${esc(a.name)} ${Math.floor(p / a.perf * 100)}% · ${man(a.perf - p)} 더 써야 합니다`).join('<br>'));
+  else if (cards.length && !short.length) add('good', '카드 실적 충족', cards.map(([a, p]) => `${esc(a.name)} ${man(p)}`).join('<br>'));
+
+  return `${head('피드백', monthNav('pmonth', ymLabel(ym)))}<p class="cap pad">${cur ? `오늘(${d}일)까지의 내역으로 계산했습니다.` : '그 달 전체 내역으로 계산했습니다.'} 평소는 직전 3개월 평균입니다.</p><ul class="fbs">${out.join('')}</ul>`;
+}
+
 function pageSetMgmt(pg) {
   const dlg = pg.dlg === 'cardMode' ? `<div class="modal" data-act="setDlg" data-arg=""><div class="dlg glist" data-act="nop"><b>카드지출 반영방법<button type="button" class="ic" data-act="setDlg" data-arg="" aria-label="닫기">✕</button></b>
       <p>카드를 사용하는 시점에 가계부탭에 '지출'로 반영하거나, 카드 사용금액이 아닌 카드 결제대금을 '지출'로 반영하실 수 있습니다.<br><br>A. 카드 사용시점에 지출로 5,000원을 반영<br>B. 카드대금 결제 시, 결제대금 5,000원을 지출로 반영</p>
@@ -846,7 +915,7 @@ async function importBackup(file) {
 }
 
 // ---------- 공통 ----------
-const PAGES = { tx: pageTx, favs: pageFavs, list: pageList, filter: pageFilter, budgetSet: pageBudgetSet, asset: pageAsset, assetInfo: pageAssetInfo, trend: pageTrend, cats: pageCats, assetSet: pageAssetSet, repeat: pageRepeat, inst: pageInst, day: pageDay, memo: pageMemo, budAdd: pageBudAdd, budCat: pageBudCat, budView: pageBudView, statCat: pageStatCat, routines: pageRoutines, routine: pageRoutine, aHide: pageAHide, aDel: pageADel, aOrder: pageAOrder, setMgmt: pageSetMgmt, backup: pageBackup, groups: pageGroups, aGone: pageAGone, xfer: pageXfer, cardPerf: pageCardPerf, repeats: pageRepeats, gGone: pageGGone };
+const PAGES = { tx: pageTx, favs: pageFavs, list: pageList, filter: pageFilter, budgetSet: pageBudgetSet, asset: pageAsset, assetInfo: pageAssetInfo, trend: pageTrend, cats: pageCats, assetSet: pageAssetSet, repeat: pageRepeat, inst: pageInst, day: pageDay, memo: pageMemo, budAdd: pageBudAdd, budCat: pageBudCat, budView: pageBudView, statCat: pageStatCat, routines: pageRoutines, routine: pageRoutine, aHide: pageAHide, aDel: pageADel, aOrder: pageAOrder, setMgmt: pageSetMgmt, backup: pageBackup, groups: pageGroups, aGone: pageAGone, xfer: pageXfer, cardPerf: pageCardPerf, repeats: pageRepeats, gGone: pageGGone, feedback: pageFeedback };
 function render() {
   const pg = topPg();
   $('#main').innerHTML = pg ? PAGES[pg.p](pg) : { book: viewBook, stats: viewStats, assets: viewAssets, more: viewMore }[V.tab]();
