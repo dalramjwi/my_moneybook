@@ -162,7 +162,7 @@ const Core = (() => {
   // [가계부앱] 2026-11-23 : budget 은 그 달에 쓸 수 있는 금액 = 그 달 예산 + 이월(carry). 그 달 예산만 필요하면 budgetOf
   function budgetRows(state, ym) {
     const list = state.tx.filter(t => t.ts.startsWith(ym)), spent = Object.fromEntries(catSums(list, '지출'));
-    const rows = budCats(state).map(cat => { const carry = carryOf(state, cat, ym); return { cat, budget: (budgetOf(state, cat, ym) || 0) + carry, spent: spent[cat] || 0, carry }; });
+    const rows = budCats(state).map(cat => { const carry = carryOf(state, cat, ym); return { cat, budget: (budgetOf(state, cat, ym) || 0) + carry, spent: spent[cat] || 0, carry, roll: !!state.budRoll?.[cat] && ym >= state.budRoll[cat] }; });
     const add = k => rows.reduce((s, r) => s + r[k], 0);
     return [{ cat: '전체', budget: add('budget'), spent: sums(list).expense, carry: add('carry') }, ...rows];
   }

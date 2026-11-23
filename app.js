@@ -193,9 +193,9 @@ function pageRoutine(pg) {
 function viewBudget() {
   const rows = Core.budgetRows(S, V.ym).filter(r => r.cat === '전체' || r.budget), t = today(); // [가계부앱] 2026-11-23 : 예산 0원 분류는 결산에서 숨김 (원본과 같게)
   const pos = t.startsWith(V.ym) ? Number(t.slice(8)) / Number(Core.monthEnd(V.ym).slice(8)) * 100 : null;
-  const bar = r => {
+  const bar = r => { // [가계부앱] 2026-11-23 : 이월 분류는 그 달 예산과 이월을 나눠 표시. 막대·남은 돈은 둘을 합한 금액 기준
     const p = r.budget ? Math.floor(r.spent / r.budget * 100) : 0, over = r.spent > r.budget;
-    return `<li class="bud" data-act="budView" data-arg="${esc(r.cat)}"><div class="bl"><small>${esc(r.cat === '전체' ? '전체예산' : r.cat)}</small><b>${won(r.budget)}</b>${r.carry ? `<small class="carry${r.carry < 0 ? ' neg' : ''}">이월 ${r.carry > 0 ? '+' : ''}${won(r.carry)}</small>` : ''}</div>
+    return `<li class="bud" data-act="budView" data-arg="${esc(r.cat)}"><div class="bl"><small>${esc(r.cat === '전체' ? '전체예산' : r.cat)}</small><b>${won(r.budget - (r.carry || 0))}</b>${r.roll || r.carry ? `<small class="carry${r.carry < 0 ? ' neg' : ''}">${r.cat === '전체' ? '이월 합' : '이월'} ${r.carry > 0 ? '+' : ''}${won(r.carry || 0)}</small>` : ''}</div>
       <div class="br">${pos != null && r.cat === '전체' ? `<em class="tod" style="left:${pos}%">오늘</em>` : ''}<div class="bar${over ? ' over' : ''}${p >= 85 ? ' full' : ''}"><i style="width:${Math.min(p, 100)}%"></i>${pos == null ? '' : `<u style="left:${pos}%"></u>`}<span>${r.budget ? p + '%' : '-'}</span></div>
       <div class="bv"><span class="${over ? 'out' : 'in'}">${won(r.spent)}</span><span>${over ? '초과 ' : ''}${won(r.budget - r.spent)}</span></div></div></li>`;
   };
