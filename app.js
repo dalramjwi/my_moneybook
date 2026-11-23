@@ -81,6 +81,8 @@ function dayList(list, o = {}) {
 }
 
 const fActive = () => V.filter.수입.size + V.filter.지출.size + V.filter.자산.size > 0;
+// [가계부앱] 2026-11-23 : 필터를 일일뿐 아니라 달력·월별에도 적용하고 같은 표시를 띄운다
+const fChip = () => (fActive() ? '<p class="chip">필터 적용 중 <button data-act="fClear">해제</button></p>' : '');
 // 분류를 고르면 그 분류의 수입·지출만, 자산을 고르면 그 자산이 들어간 내역만 통과
 function passes(t) {
   const f = V.filter;
@@ -92,19 +94,19 @@ function passes(t) {
 function viewDay() {
   const list = (V.q ? S.tx.filter(t => `${t.note} ${t.cat} ${t.sub || ''} ${t.asset} ${t.memo} ${t.tag}`.includes(V.q)) : S.tx.filter(t => t.ts.startsWith(V.ym))).filter(passes).sort(desc);
   return `<input type="search" class="search" placeholder="검색 (내용·분류·자산·메모)" value="${esc(V.q)}" data-change="search">
-    ${fActive() ? '<p class="chip">필터 적용 중 <button data-act="fClear">해제</button></p>' : ''}${sumBox(Core.sums(list))}${dayList(list)}`;
+    ${fChip()}${sumBox(Core.sums(list))}${dayList(list)}`;
 }
 
 function viewCal() {
   const first = V.ym + '-01', end = Core.monthEnd(V.ym), by = {};
-  const list = S.tx.filter(t => t.ts.startsWith(V.ym));
-  for (const t of list) if (t.type !== '이체') { const o = by[t.ts.slice(0, 10)] ||= { 수입: 0, 지출: 0 }; o[t.type] += t.amt; }
+  const list = S.tx.filter(t => t.ts.startsWith(V.ym)).filter(passes);
+  for (const t of list) if (t.type !== '이체' && !Core.isAdj(t)) { const o = by[t.ts.slice(0, 10)] ||= { 수입: 0, 지출: 0 }; o[t.type] += t.amt; }
   let cells = '<i></i>'.repeat(Core.dow(first));
   for (let d = first; d <= end; d = Core.dAdd(d, 1)) {
     const o = by[d] || {};
     cells += `<button data-act="dayList" data-arg="${d}" class="w${Core.dow(d)}${d === today() ? ' today' : ''}"><b>${d === first ? Number(d.slice(5, 7)) + '.' : ''}${Number(d.slice(8))}</b>${o.수입 ? `<small class="in">${num(o.수입)}</small>` : ''}${o.지출 ? `<small class="out">${num(o.지출)}</small>` : ''}</button>`;
   }
-  return `${sumBox(Core.sums(list))}<div class="cal">${DAYS.map((d, i) => `<em class="w${i}">${d}</em>`).join('')}${cells}</div>`;
+  return `${fChip()}${sumBox(Core.sums(list))}<div class="cal">${DAYS.map((d, i) => `<em class="w${i}">${d}</em>`).join('')}${cells}</div>`;
 }
 
 // [가계부앱] 2026-11-23 : 달력에서 날짜를 누르면 뜨는 그날 창. 내역 목록과 메모 보기를 오가고, 아래 화살표로 앞뒤 날짜로 넘긴다
@@ -140,13 +142,14 @@ function pageMemo(pg) { // 날짜 창은 내역 입력 화면의 것을 같이 �
 function viewMonth() {
   const y = V.ym.slice(0, 4), cur = today().slice(0, 7), t0 = today();
   const cell = s => `<span class="a in">${won(s.income)}</span><span class="a"><span class="out">${won(s.expense)}</span><small>${won(s.income - s.expense)}</small></span>`;
-  let html = sumBox(Core.periodSums(S.tx, y)) + '<ul class="list">';
+  const tx = S.tx.filter(passes);
+  let html = fChip() + sumBox(Core.periodSums(tx, y)) + '<ul class="list">';
   for (let m = 12; m >= 1; m--) {
-    const ym = `${y}-${String(m).padStart(2, '0')}`, s = Core.periodSums(S.tx, ym);
+    const ym = `${y}-${String(m).padStart(2, '0')}`, s = Core.periodSums(tx, ym);
     if (ym > cur && !s.income && !s.expense) continue;
     html += `<li data-act="openMonth" data-arg="${ym}"><span class="m"><b class="big">${m}월</b>${V.openMonth === ym ? `<small>${md(ym + '-01')} ~ ${md(Core.monthEnd(ym))}</small>` : ''}</span>${cell(s)}</li>`;
     if (V.openMonth === ym) for (const [f, t] of Core.weeksOf(ym).reverse())
-      html += `<li class="wk${t0 >= f && t0 <= t ? ' now' : ''}" data-act="range" data-arg="${f},${t}"><span class="m">${md(f)} ~ ${md(t)}</span>${cell(Core.sums(Core.between(S.tx, f, t)))}</li>`;
+      html += `<li class="wk${t0 >= f && t0 <= t ? ' now' : ''}" data-act="range" data-arg="${f},${t}"><span class="m">${md(f)} ~ ${md(t)}</span>${cell(Core.sums(Core.between(tx, f, t)))}</li>`;
   }
   return html + '</ul>';
 }
@@ -169,7 +172,8 @@ function assetRoutines() {
 }
 function todoBox() {
   const t = today(), due = [...(S.routines || []), ...assetRoutines()].map(r => [r, Core.routineDue(r, t)]).filter(x => x[1]).sort((a, b) => a[1].localeCompare(b[1]));
-  return due.length ? `<ul class="todo">${due.map(([r, d]) => `<li data-act="rtDone" data-arg="${r.id}"><i></i><span class="m">${esc(r.text)}</span><small${d < t ? ' class="late"' : ''}>${d < t ? `밀림 ${md(d)}` : '오늘'}</small></li>`).join('')}</ul>` : '';
+  // [가계부앱] 2026-11-23 : 자산에서 생긴 알림(결제일·납입일·연회비)은 "입력"을 누르면 금액이 채워진 입력 화면이 열리고, 저장하면 체크된다
+  return due.length ? `<ul class="todo">${due.map(([r, d]) => `<li data-act="rtDone" data-arg="${esc(r.id)}"><i></i><span class="m">${esc(r.text)}</span>${typeof r.id === 'string' ? `<button class="mini" data-act="rtTx" data-arg="${esc(r.id)}">입력</button>` : ''}<small${d < t ? ' class="late"' : ''}>${d < t ? `밀림 ${md(d)}` : '오늘'}</small></li>`).join('')}</ul>` : '';
 }
 const rtRule = r => (r.every === 'week' ? `매주 ${DAYS[r.dow]}요일` : r.every === 'once' ? r.date : `매월 ${r.day}일`);
 function pageRoutines() {
@@ -209,7 +213,7 @@ const viewMemo = () => `<ul class="memo top">${S.memos.map(m => memoCard(m).repl
 function viewBook() {
   const tabs = [['day', '일일'], ['cal', '달력'], ['month', '월별'], ['budget', '결산'], ['memo', '메모']].map(([k, n]) => `<button data-act="sub" data-arg="${k}"${V.sub === k ? ' class="on"' : ''}>${n}</button>`).join('');
   return `<header>${monthNav('month', V.sub === 'month' ? V.ym.slice(0, 4) + '년' : ymLabel(V.ym))}<span class="hic"><button class="ic" data-act="go" data-arg="favs" aria-label="자주 사용">${ICON.favs}</button><button class="ic${fActive() ? ' on' : ''}" data-act="go" data-arg="filter" aria-label="필터">${ICON.filter}</button></span></header>
-    ${todoBox()}<div class="tabs">${tabs}</div>${{ day: viewDay, cal: viewCal, month: viewMonth, budget: viewBudget, memo: viewMemo }[V.sub]()}${V.sub === 'memo' ? '' : fab()}`;
+    ${todoBox()}${V.notice ? `<p class="chip">${V.notice} <button data-act="noticeX">확인</button></p>` : ''}<div class="tabs">${tabs}</div>${{ day: viewDay, cal: viewCal, month: viewMonth, budget: viewBudget, memo: viewMemo }[V.sub]()}${V.sub === 'memo' ? '' : fab()}`;
 }
 
 // [가계부앱] 2026-11-23 : 한 분류의 내역을 소분류별 합계로 (소분류가 둘 이상일 때만)
@@ -271,7 +275,7 @@ function pageBudCat(pg) {
     ${months.map(ym => { const own = S.budgetM?.[c]?.[ym]; return `<li data-act="budMonth" data-arg="${ym}"><span class="m"><i class="mo${ym === cur ? ' on' : ''}">${Number(ym.slice(5))}월</i></span><span class="a">${won(Core.budgetOf(S, c, ym) ?? 0)}</span></li>`; }).join('')}</ul>`;
 }
 function pageBudView(pg) {
-  const c = pg.cat, y = pg.ym.slice(0, 4), mine = t => t.type === '지출' && (c === '전체' || t.cat === c);
+  const c = pg.cat, y = pg.ym.slice(0, 4), bc = new Set(Core.budCats(S)), mine = t => t.type === '지출' && (c === '전체' ? bc.has(t.cat) : t.cat === c); // [가계부앱] 2026-11-23 : 전체는 예산 있는 분류만
   const yms = [...Array(12)].map((_, i) => `${y}-${String(i + 1).padStart(2, '0')}`);
   const spent = yms.map(ym => S.tx.reduce((s, t) => s + (t.ts.startsWith(ym) && mine(t) ? t.amt : 0), 0));
   const buds = yms.map(ym => Core.budgetRows(S, ym).find(r => r.cat === c)?.budget ?? 0);
@@ -414,11 +418,13 @@ function saveTx(v) {
   if (famt > 0) Object.assign(t, { cur: fa.cur, famt });
   else if (old?.cur && v.famt === undefined) Object.assign(t, { cur: old.cur, famt: old.famt }); // 엑셀에서 가져온 외화 표기는 지우지 않는다
   if (v.noPerf && !tr) t.noPerf = true;
+  // [가계부앱] 2026-11-23 : 고쳐도 할부 묶음(inst)·할부 원금(instTotal)·반복 표시(rid)는 남긴다
+  for (const k of ['inst', 'instTotal', 'rid']) if (old?.[k] != null) t[k] = old[k];
   const months = Math.round(Number(v.months));
   if (old) S.tx[S.tx.indexOf(old)] = t;
   else if (v.rep === 'inst' && months > 1) { // 할부 : 달마다 한 건씩, 내용 끝에 (회차/개월). 이자가 있으면 회차 금액에 더한다
     const plan = Core.instPlan(amt, months, Number(v.irate) || 0);
-    plan.forEach((x, i) => S.tx.push({ ...t, id: i ? S.seq++ : t.id, ts: Core.addMonths(t.ts, i), amt: x.principal + x.interest, note: `${t.note}(${i + 1}/${months})`, ...(i ? {} : { instTotal: amt }) }));
+    plan.forEach((x, i) => S.tx.push({ ...t, inst: t.id, id: i ? S.seq++ : t.id, ts: Core.addMonths(t.ts, i), amt: x.principal + x.interest, note: `${t.note}(${i + 1}/${months})`, ...(i ? {} : { instTotal: amt }) }));
   } else if (EVERY[v.rep]) { // 반복 : 설정을 남기고, 지금까지 돌아온 회차를 내역으로 만든다. 시작일이 아직 안 됐으면 그날 이후 앱을 열 때 생긴다
     const { id, ts, ...tpl } = t;
     S.repeats.push({ id: S.seq++, every: v.rep, start: t.ts, n: 0, tpl });
@@ -429,6 +435,7 @@ function saveTx(v) {
   }
   if (!tr) Core.addCat(S, t.type, t.cat);
   V.ym = t.ts.slice(0, 7);
+  if (topPg()?.rt) { rtMark(topPg().rt); delete topPg().rt; } // 알림의 "입력"으로 들어온 내역이면 그 알림을 체크
   if (v.go === 'more') { save(); topPg().t = { type: t.type, ts: t.ts, asset: t.asset }; render(); } else done();
 }
 
@@ -510,7 +517,7 @@ const assetMenu = withAdd => (V.aMenu ? `<div class="modal clear" data-act="aMen
 const perfOf = (a, ym) => (a.perfBase === 'avg3' ? Math.round([0, -1, -2].reduce((x, n) => x + Core.card(S, a.name, Core.shiftYm(ym, n)).perf, 0) / 3) : Core.card(S, a.name, ym).perf);
 function viewAssets() {
   const bal = Core.balances(S), tot = Core.totals(S), ym = today().slice(0, 7);
-  const cards = Object.fromEntries(S.assets.filter(isCard).map(a => [a.name, Core.card(S, a.name, ym)]));
+  const cards = Object.fromEntries(S.assets.filter(isCard).map(a => [a.name, Core.card(S, a.name, ym, a.settleDay || 1, today())]));
   const row = a => {
     const v = bal[a.name] || 0, c = cards[a.name], open = V.openMemo.has(a.name), pf = c && a.perf ? perfOf(a, ym) : 0;
     return `<li data-act="asset" data-arg="${esc(a.name)}">${a.memo ? `<button class="ic sm" data-act="memoTog" data-arg="${esc(a.name)}" aria-label="메모 ${open ? '접기' : '펼치기'}">${open ? ICON.minus : ICON.plus}</button>` : '<i class="sm0"></i>'}<span class="m"><b>${esc(a.name)}</b>${c && a.perf && !a.deleted && pf < a.perf ? `<span class="perfl"><i class="pbar"><u style="width:${Math.min(100, pf / a.perf * 100)}%"></u></i><small>실적 ${Math.floor(pf / a.perf * 100)}%</small></span>` : ''}${a.deleted ? '<small>삭제됨</small>' : a.hidden ? '<small>숨김</small>' : ''}${isFx(a) ? `<small>${fx(a, bal[a.name] || 0)}</small>` : ''}</span>
@@ -664,7 +671,6 @@ function pageAssetInfo(pg) {
       ${row('정산일', `<input inputmode="numeric" autocomplete="off" data-unit=" 일" name="settleDay" value="${sDay} 일">`)}
       ${row('결제일', `<input inputmode="numeric" autocomplete="off" data-unit=" 일" name="payDay" value="${pDay} 일">`)}
       <div class="pbox"><span>결제예정금액</span><b>${per[0]}</b><span>미결제금액</span><b>${per[1]}</b></div>
-      ${sDay !== 1 ? '<p class="cap ind">정산일이 1일이 아니어도 금액 계산은 아직 1일~말일 기준입니다.</p>' : ''}
       ${row('실적 기준', money('perf', a.perf || '', '예: 300,000원'))}
       ${row('연회비', money('annualFee', a.annualFee || '', '없으면 비워 두기'))}
       ${row('연회비 청구 월', `<input inputmode="numeric" autocomplete="off" data-unit=" 월" name="annualMonth" value="${a.annualMonth ? a.annualMonth + ' 월' : ''}" placeholder="넣으면 그 달 1일에 알림">`)}` : ''}
@@ -704,6 +710,7 @@ function saveAsset(v) {
       if (t.asset === v.orig) t.asset = name;
       if (t.type === '이체' && t.cat === v.orig) t.cat = name;
     }
+    for (const x of S.assets) if (x.payFrom === v.orig) x.payFrom = name; // [가계부앱] 2026-11-23 : 카드의 결제 계좌 연결도 같이 바꾼다
     for (const pg of V.stack) if (pg.name === v.orig) pg.name = name;
   }
   if (v.bal != null && v.bal !== '') { // 금액을 직접 고치면 차액을 내역으로 남긴다
@@ -774,7 +781,7 @@ const viewMore = () => `<header><b>설정</b></header>
 function pageFeedback(pg) {
   pg.ym ||= today().slice(0, 7);
   const ym = pg.ym, t = today(), cur = ym === t.slice(0, 7), N = Number(Core.monthEnd(ym).slice(8)), d = cur ? Number(t.slice(8)) : N, past = ym < t.slice(0, 7);
-  const list = S.tx.filter(x => x.ts.startsWith(ym)), sums = Core.periodSums(S.tx, ym), exp = list.filter(x => x.type === '지출'), bal = Core.balances(S);
+  const list = S.tx.filter(x => x.ts.startsWith(ym)), sums = Core.periodSums(S.tx, ym), exp = list.filter(x => x.type === '지출' && !Core.isAdj(x)), bal = Core.balances(S);
   const out = [], add = (lvl, title, text) => out.push(`<li class="fb ${lvl}"><b>${title}</b><p>${text}</p></li>`), man = v => (Math.abs(v) >= 10000 ? (Math.round(v / 1000) / 10).toLocaleString('ko-KR') + '만 원' : won(v));
   if (!list.length) return `${head('피드백', monthNav('pmonth', ymLabel(ym)))}<p class="empty">이 달에는 내역이 없습니다.</p>`;
 
@@ -785,7 +792,10 @@ function pageFeedback(pg) {
   // 2. 예산 속도
   const rows = Core.budgetRows(S, ym), tot = rows[0];
   if (tot.budget > 0) {
-    const proj = Math.round(tot.spent / d * N), big = [...exp].sort((x, y) => y.amt - x.amt)[0];
+    // [가계부앱] 2026-11-23 : 월말 예상은 고정비(반복·할부 내역)를 빼고 나머지만 날짜 비례로 늘린다 (월초 고정비 때문에 속도 경고가 뜨던 문제). 전체예산 기준이라 예산 있는 분류만 본다
+    // ponytail: 반복으로 만든 내역(rid)과 할부만 고정비로 본다. 손으로 적는 월세·보험료는 여전히 비례로 늘어난다. 필요해지면 분류에 고정비 표시를 둔다
+    const bexp = exp.filter(x => S.budgets[x.cat] != null), fixed = bexp.reduce((s, x) => s + (x.rid || x.inst || /\(\d+\/\d+\)\s*$/.test(x.note) ? x.amt : 0), 0);
+    const proj = Math.round(fixed + (tot.spent - fixed) / d * N), big = [...bexp].sort((x, y) => y.amt - x.amt)[0];
     const bigNote = big && big.amt >= tot.spent * 0.3 ? ` 가장 큰 지출은 "${esc(big.note || big.cat)}" ${man(big.amt)}으로 전체의 ${Math.round(big.amt / tot.spent * 100)}%입니다.` : '';
     if (tot.spent > tot.budget) add('bad', '예산 초과', `전체 예산 ${man(tot.budget)} 중 ${man(tot.spent)}을 써서 ${man(tot.spent - tot.budget)} 넘었습니다 (${Math.floor(tot.spent / tot.budget * 100)}%).${bigNote}`);
     else if (cur && proj > tot.budget) add('warn', '예산 속도가 빠릅니다', `${d}일 동안 ${man(tot.spent)}을 썼습니다. 이 속도면 월말에 약 ${man(proj)}이 되어 예산을 ${man(proj - tot.budget)} 넘습니다. 남은 ${N - d}일 동안 하루 ${man(Math.max(0, Math.floor((tot.budget - tot.spent) / Math.max(1, N - d))))} 안으로 쓰면 맞출 수 있습니다.${bigNote}`);
@@ -817,7 +827,7 @@ function pageFeedback(pg) {
   const saved = list.filter(x => x.type === '이체').reduce((s, x) => s + (sv(x.cat) && !sv(x.asset) ? x.amt : 0) - (sv(x.asset) && !sv(x.cat) ? x.amt : 0), 0);
   if (sums.income > 0) {
     const rate = Math.round(saved / sums.income * 100);
-    if (saved <= 0) add('bad', '저축이 없습니다', `이번 달 저축·투자 자산으로 옮긴 돈보다 꺼낸 돈이 ${man(-saved)} 많습니다.`);
+    if (saved <= 0) add('bad', '저축이 없습니다', saved ? `이번 달 저축·투자 자산으로 옮긴 돈보다 꺼낸 돈이 ${man(-saved)} 많습니다.` : '이번 달 저축·투자 자산으로 옮긴 돈이 없습니다.');
     else if (rate < 10) add('warn', '저축을 더 해야 합니다', `저축·투자로 ${man(saved)}을 옮겼습니다. 수입의 ${rate}%입니다. 수입의 10%인 ${man(sums.income * 0.1)}까지 ${man(sums.income * 0.1 - saved)} 더 필요합니다.`);
     else add(rate >= 30 ? 'good' : 'info', `저축률 ${rate}%`, `저축·투자로 ${man(saved)}을 옮겼습니다.${rate >= 30 ? ' 수입의 30%를 넘겼습니다.' : ` 수입의 30%인 ${man(sums.income * 0.3)}까지 ${man(sums.income * 0.3 - saved)} 남았습니다.`}`);
   }
@@ -877,9 +887,13 @@ function pageCardPerf() {
     <form data-form="cardPerf" class="perff">${cards.map(a => `<div class="prow"><span>${esc(a.name)}</span><select name="b:${esc(a.name)}"><option value="">전월실적</option><option value="avg3"${a.perfBase === 'avg3' ? ' selected' : ''}>3개월 평균</option></select>${money('p:' + esc(a.name), a.perf || '', '0')}</div>`).join('') || '<p class="empty">카드 그룹의 자산이 없습니다.</p>'}
       <div class="row pad"><button class="pri">저장하기</button></div></form>`;
 }
-const pageRepeats = () => `${head('반복 내역')}<ul class="list">${S.repeats.map(r => `<li><span class="c">${EVERY[r.every]}</span><span class="m"><b>${esc(r.tpl.note || r.tpl.cat)}</b><small>${esc(r.tpl.asset)} · 시작 ${r.start.slice(0, 10)}</small></span><span class="a ${cls(r.tpl.type)}">${won(r.tpl.amt)}</span><button data-act="delRepeat" data-arg="${r.id}">삭제</button></li>`).join('') || '<p class="empty">내역 입력의 "반복/할부"에서 추가합니다.</p>'}</ul>`;
+// [가계부앱] 2026-11-23 : 줄을 누르면 금액 수정 (다음 회차부터)
+const pageRepeats = () => `${head('반복 내역')}<ul class="list">${S.repeats.map(r => `<li data-act="repAmt" data-arg="${r.id}"><span class="c">${EVERY[r.every]}</span><span class="m"><b>${esc(r.tpl.note || r.tpl.cat)}</b><small>${esc(r.tpl.asset)} · 시작 ${r.start.slice(0, 10)}</small></span><span class="a ${cls(r.tpl.type)}">${won(r.tpl.amt)}</span><button data-act="delRepeat" data-arg="${r.id}">삭제</button></li>`).join('') || '<p class="empty">내역 입력의 "반복/할부"에서 추가합니다.</p>'}</ul>`;
 
-function exportXlsx() {
+// [가계부앱] 2026-11-23 : 엑셀 라이브러리(950KB)는 가져오기·내보내기를 할 때만 불러온다
+const needXlsx = () => (window.XLSX ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/xlsx.full.min.js'; s.onload = res; s.onerror = () => rej(new Error('엑셀 기능을 불러오지 못했습니다.')); document.head.append(s); }));
+async function exportXlsx() {
+  try { await needXlsx(); } catch (e) { return alert(e.message); }
   const ws = XLSX.utils.aoa_to_sheet(Core.txToRows(S));
   for (let r = 1; r <= S.tx.length; r++) ws[XLSX.utils.encode_cell({ r, c: 0 })].z = 'yyyy-mm-dd hh:mm:ss';
   const wb = XLSX.utils.book_new();
@@ -898,6 +912,7 @@ function exportBackup() {
 async function importXlsx(file) {
   if (S.tx.length && !confirm(`지금 내역 ${S.tx.length}건을 지우고 파일 내용으로 바꿉니다. 계속할까요?`)) return;
   try {
+    await needXlsx();
     const wb = XLSX.read(await file.arrayBuffer());
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true });
     if (rows[0]?.[6] !== '수입/지출') throw new Error('편한가계부 엑셀 형식이 아닙니다.');
@@ -930,6 +945,12 @@ function render() {
 function done() { save(); if (V.stack.length) history.back(); else render(); }
 const lines = s => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 const txById = id => S.tx.find(t => t.id === Number(id));
+// 알림 체크. 자산에서 생긴 알림(id 가 "p:자산이름" 꼴)은 자산에, 나머지는 루틴에 체크한 회차를 적는다
+function rtMark(id) {
+  const m = /^([pfd]):(.*)$/.exec(id);
+  if (m) { const r = assetRoutines().find(r => r.id === id), a = S.assets.find(a => a.name === m[2]); if (r && a) (a.rtDone ||= {})[m[1]] = Core.routineDue(r, today()); }
+  else { const r = S.routines.find(r => r.id === Number(id)); r.done = Core.routineDue(r, today()); }
+}
 
 const ACT = {
   tab: a => { if (a === 'book' && V.tab === 'book' && !V.stack.length) V.sub = 'day'; V.tab = a; V.stack.length = 0; render(); }, // 가계부 탭에 있을 때 가계부를 한 번 더 누르면 일일로
@@ -975,11 +996,22 @@ const ACT = {
   stat: a => { V.statType = a; render(); },
   sNav: a => { const n = Number(a); V.sDay = V.sMode === 'week' ? Core.dAdd(V.sDay, 7 * n) : Core.shiftYm(V.sDay.slice(0, 7), V.sMode === 'year' ? 12 * n : n) + '-01'; render(); },
   statCat: c => { const [from, to] = statPeriod(); go(V.sMode === 'month' ? { p: 'statCat', cat: c, type: V.statType, ym: from.slice(0, 7), color: PAL[Core.catSums(Core.between(S.tx, from, to), V.statType).findIndex(r => r[0] === c) % PAL.length] } : { p: 'list', title: c, from, to, cat: c, type: V.statType }); },
-  rtDone: id => {
-    const m = /^([pfd]):(.*)$/.exec(id);
-    if (m) { const r = assetRoutines().find(r => r.id === id), a = S.assets.find(a => a.name === m[2]); (a.rtDone ||= {})[m[1]] = Core.routineDue(r, today()); }
-    else { const r = S.routines.find(r => r.id === Number(id)); r.done = Core.routineDue(r, today()); }
-    save(); render();
+  rtDone: id => { rtMark(id); save(); render(); },
+  // [가계부앱] 2026-11-23 : 자산 알림에서 바로 입력. 카드 결제일은 카드 대금 이체, 연회비는 카드 지출, 납입·상환일은 그 자산으로 이체
+  rtTx: id => {
+    const [, k, name] = /^([pfd]):(.*)$/.exec(id), a = S.assets.find(x => x.name === name);
+    if (k === 'p') ACT.pay(name);
+    else if (k === 'f') openTx({ type: '지출', asset: name, amt: a.annualFee, note: '연회비' });
+    else openTx({ type: '이체', asset: liveNames().find(n => n !== name), cat: name, amt: a.monthly || '', note: a.group === '저축' ? '납입' : a.group === '보험' ? '보험료' : '상환' });
+    if (topPg()?.p === 'tx') topPg().rt = id;
+  },
+  noticeX: () => { V.notice = ''; render(); },
+  repAmt: id => {
+    const r = S.repeats.find(r => r.id === Number(id)), v = prompt('반복 금액 (원)\n다음 회차부터 적용됩니다. 이미 만들어진 내역은 그대로입니다.', r.tpl.amt);
+    if (v == null) return;
+    const n = Math.round(toNum(v));
+    if (!(n > 0)) return alert('금액을 확인하세요.');
+    r.tpl.amt = n; save(); render();
   },
   rtEdit: id => go({ p: 'routine', r: id ? { ...S.routines.find(r => r.id === Number(id)) } : { every: 'month', day: Number(today().slice(8)) } }),
   rtDel: id => { S.routines = S.routines.filter(r => r.id !== Number(id)); done(); },
@@ -991,7 +1023,13 @@ const ACT = {
   newTx: d => { const pg = topPg(); openTx({ ...(d && { ts: d + nowTs().slice(10) }), ...(pg?.p === 'asset' && { asset: pg.name }) }); },
   editTx: id => go({ p: 'tx', t: { ...txById(id) } }),
   copyTx: id => { const pg = topPg(); pg.t = { ...txById(id), id: undefined, ts: nowTs() }; pg.dirty = false; render(); },
-  delTx: id => { if (confirm('이 내역을 삭제할까요?')) { S.tx = S.tx.filter(t => t.id !== Number(id)); done(); } },
+  // [가계부앱] 2026-11-23 : 할부 회차를 지울 때 이후 회차도 같이 지울지 묻는다 (이 수정 뒤에 만든 할부만 묶여 있다)
+  delTx: id => {
+    if (!confirm('이 내역을 삭제할까요?')) return;
+    const t = txById(id), rest = t.inst ? S.tx.filter(x => x.inst === t.inst && x.ts > t.ts) : [];
+    const all = rest.length > 0 && confirm(`같은 할부의 이후 회차 ${rest.length}건도 같이 삭제할까요?`);
+    S.tx = S.tx.filter(x => x.id !== t.id && !(all && rest.includes(x))); done();
+  },
   favTx: id => { const { id: _, ts, photo, ...f } = txById(id); S.favs.push(f); save(); alert('자주 사용하는 내역에 추가했습니다.'); },
   sheet: k => { sync(); const pg = topPg(); pg.pick = k; pg.tmp = pg.t.ts; pg.calYm = ''; pg.pcat = undefined; render(); },
   pickOk: () => { sync(); const pg = topPg(); pg.dirty ||= pg.t.ts !== pg.tmp; pg.t.ts = pg.tmp; pg.pick = ''; render(); },
@@ -1032,7 +1070,7 @@ const ACT = {
   assetEdit: name => go({ p: 'assetInfo', name }),
   cats: type => go({ p: 'cats', type }),
   catAdd: () => { const name = (prompt('새 분류 이름') || '').trim(); if (name) { Core.addCat(S, topPg().type, name); save(); render(); } },
-  catDel: i => { const list = S.cats[topPg().type]; if (confirm(`"${list[i]}" 분류를 목록에서 뺄까요? 내역은 남습니다.`)) { delete S.budgets[list[i]]; delete S.budgetM?.[list[i]]; delete S.budRoll?.[list[i]]; delete S.subs[list[i]]; list.splice(i, 1); save(); render(); } },
+  catDel: i => { const list = S.cats[topPg().type]; if (confirm(`"${list[i]}" 분류를 목록에서 뺄까요? 이 분류의 예산·이월·소분류 설정도 지워집니다. 내역은 남습니다.`)) { delete S.budgets[list[i]]; delete S.budgetM?.[list[i]]; delete S.budRoll?.[list[i]]; delete S.subs[list[i]]; list.splice(i, 1); save(); render(); } },
   catRen: i => {
     const type = topPg().type, list = S.cats[type], old = list[i], name = (prompt('분류 이름', old) || '').trim();
     if (!name || name === old) return;
@@ -1080,7 +1118,7 @@ const ACT = {
   aChart: () => { const pg = topPg(); pg.chart = !pg.chart; render(); },
   moveAsset: a => { const i = S.assets.findIndex(x => x.name === topPg().name), j = i + Number(a); if (S.assets[j]) { [S.assets[i], S.assets[j]] = [S.assets[j], S.assets[i]]; save(); alert('순서를 바꿨습니다.'); } },
   toggleDel: () => { const a = S.assets.find(x => x.name === topPg().name); a.deleted = !a.deleted; done(); },
-  pay: () => { const name = topPg().name, c = Core.card(S, name, today().slice(0, 7)); openTx({ type: '이체', asset: S.assets.find(a => a.name === name).payFrom || liveNames().find(n => n !== name), cat: name, amt: c.due + c.unpaid || '', note: '카드 대금' }); },
+  pay: n => { const name = n || topPg().name, c = Core.card(S, name, today().slice(0, 7), S.assets.find(a => a.name === name).settleDay || 1, today()); openTx({ type: '이체', asset: S.assets.find(a => a.name === name).payFrom || liveNames().find(n => n !== name), cat: name, amt: c.due + c.unpaid || '', note: '카드 대금' }); },
   pick: id => $('#' + id).click(),
   resetTx: () => { if (confirm(`내역 ${S.tx.length}건과 반복 설정을 모두 지웁니다. 자산·분류는 남습니다. 계속할까요?`)) { S.tx = []; S.repeats = []; done(); } },
   resetAll: () => { if (confirm('내역·자산·분류·예산·메모를 전부 지웁니다. 되돌릴 수 없습니다. 계속할까요?')) { S = Core.newState(); done(); } },
@@ -1142,6 +1180,17 @@ document.addEventListener('pointerdown', e => { // 누르는 순간 반영 (focu
   if (el.dataset.ce) el.textContent = li.textContent; else el.value = li.textContent;
   el.dispatchEvent(new Event('input', { bubbles: true })); // 수정 표시(dirty) 갱신
   li.parentElement.hidden = true;
+  // [가계부앱] 2026-11-23 : 새 내역이면 같은 내용으로 마지막에 적은 내역의 금액·분류·자산을 빈 칸에만 채운다 (이미 고른 값은 건드리지 않는다)
+  const pg = topPg();
+  if (pg?.p !== 'tx' || pg.t.id) return;
+  sync();
+  const t = pg.t, last = [...S.tx].sort(desc).find(x => x.note === t.note && x.type === t.type);
+  if (!last) return;
+  const noAmt = !toNum(t.amt), noCat = !t.cat && t.type !== '이체';
+  if (!noAmt && !noCat) return;
+  if (noAmt) t.amt = last.amt;
+  if (noCat) { t.cat = last.cat; t.sub = last.sub || ''; if (liveNames().includes(last.asset)) t.asset = last.asset; }
+  render();
 });
 // 편집 가능한 div 에 친 글을 숨은 input 으로 옮기고, 수정 화면이면 저장하기 버튼으로 바꾼다
 document.addEventListener('input', e => {
@@ -1210,7 +1259,8 @@ addEventListener('popstate', pop);
 
 (async () => {
   S = { ...Core.newState(), ...(await idb('readonly', s => s.get('state'))) };
-  if (Core.runRepeats(S, nowTs())) save(); // 앱을 안 연 사이에 돌아온 반복 내역을 채운다
+  const made = Core.runRepeats(S, nowTs()); // 앱을 안 연 사이에 돌아온 반복 내역을 채운다
+  if (made) { save(); V.notice = `반복 내역 ${made}건을 자동으로 입력했습니다.`; } // [가계부앱] 2026-11-23 : 자동 입력을 가계부 탭에 알린다
   navigator.storage?.persist?.(); // 브라우저가 저장소를 임의로 비우지 않게 요청
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); // 파일로 직접 열면 등록이 안 되는데, 그때는 캐시 없이 쓴다
   render();

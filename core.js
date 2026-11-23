@@ -82,7 +82,12 @@ const Core = (() => {
     return { assets, liabilities, net: assets - liabilities };
   }
 
+  // [가계부앱] 2026-11-23 : 잔액수정 내역은 자산 잔액에만 반영하고 수입·지출 합계·통계·예산에서는 뺀다 (자산 초기 잔액이 그 달 수입으로 잡히던 문제)
+  // ponytail: 분류 이름 '잔액수정' 으로 판단한다. 이 분류 이름을 바꾸면 다시 집계된다. 필요해지면 내역에 표시 값을 둔다
+  const isAdj = t => t.cat === '잔액수정' && t.type !== '이체';
+
   const sums = list => list.reduce((s, t) => {
+    if (isAdj(t)) return s;
     if (t.type === '수입') s.income += t.amt; else if (t.type === '지출') s.expense += t.amt;
     return s;
   }, { income: 0, expense: 0 });
@@ -92,7 +97,7 @@ const Core = (() => {
 
   function byCategory(tx, prefix, type) {
     const m = {};
-    for (const t of tx) if (t.type === type && t.ts.startsWith(prefix)) m[t.cat] = (m[t.cat] || 0) + t.amt;
+    for (const t of tx) if (t.type === type && t.ts.startsWith(prefix) && !isAdj(t)) m[t.cat] = (m[t.cat] || 0) + t.amt;
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }
 
@@ -116,7 +121,7 @@ const Core = (() => {
 
   const catSums = (list, type) => {
     const m = {};
-    for (const t of list) if (t.type === type) m[t.cat] = (m[t.cat] || 0) + t.amt;
+    for (const t of list) if (t.type === type && !isAdj(t)) m[t.cat] = (m[t.cat] || 0) + t.amt;
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   };
 
@@ -143,12 +148,15 @@ const Core = (() => {
   // 카드 : 실적사용금액(ym 한 달), 결제예정금액, 미결제금액
   // ponytail: 결제예정 = 전월 말 미결제액 - 이번 달 입금액 으로 본다(1일~말일 사용, 다음 달 결제). 카드별 결제일·사용기간 설정이 필요해지면 자산에 기간 값을 둔다
   // ponytail: 할부는 내용 끝의 "(회차/개월)" 표기로 판단. 첫 회차에 전체(회차 금액 x 개월)를 실적으로 잡고 이후 회차는 뺀다
-  function card(state, name, ym) {
-    const L = ledger(state, name), prevEnd = dAdd(ym + '-01', -1), end = monthEnd(ym);
-    const prev = L.filter(r => day(r.t) <= prevEnd).at(-1)?.bal || 0;
-    const bal = L.filter(r => day(r.t) <= end).at(-1)?.bal || 0;
+  // [가계부앱] 2026-11-23 : 정산일(s) 반영. ref 가 든 사용기간(정산일 ~ 다음 정산일 전날)을 이번 기간으로 보고, 그 전날까지의 미결제액이 결제예정. 실적은 그대로 1일~말일
+  function card(state, name, ym, s = 1, ref = monthEnd(ym)) {
+    const L = ledger(state, name), at = d => L.filter(r => day(r.t) <= d).at(-1)?.bal || 0;
+    const clamp = m => { const e = monthEnd(m); return s >= Number(e.slice(8)) ? e : `${m}-${String(s).padStart(2, '0')}`; };
+    const m0 = clamp(ref.slice(0, 7)) <= ref ? ref.slice(0, 7) : shiftYm(ref.slice(0, 7), -1);
+    const from = clamp(m0), end = dAdd(clamp(shiftYm(m0, 1)), -1);
+    const prev = at(dAdd(from, -1)), bal = at(end);
     const month = L.filter(r => r.t.ts.startsWith(ym));
-    const paid = month.reduce((s, r) => s + (r.d > 0 ? r.d : 0), 0);
+    const paid = L.filter(r => day(r.t) >= from && day(r.t) <= end).reduce((s, r) => s + (r.d > 0 ? r.d : 0), 0);
     const due = Math.max(0, -prev - paid);
     const perf = month.reduce((s, { t }) => {
       if (t.type !== '지출' || t.noPerf) return s;
@@ -164,7 +172,8 @@ const Core = (() => {
     const list = state.tx.filter(t => t.ts.startsWith(ym)), spent = Object.fromEntries(catSums(list, '지출'));
     const rows = budCats(state).map(cat => { const carry = carryOf(state, cat, ym); return { cat, budget: (budgetOf(state, cat, ym) || 0) + carry, spent: spent[cat] || 0, carry, roll: !!state.budRoll?.[cat] && ym >= state.budRoll[cat] }; });
     const add = k => rows.reduce((s, r) => s + r[k], 0);
-    return [{ cat: '전체', budget: add('budget'), spent: sums(list).expense, carry: add('carry') }, ...rows];
+    // [가계부앱] 2026-11-23 : 전체 사용액도 예산 있는 분류의 합으로 (예산은 분류 합인데 사용액만 전체 지출이라 막대가 항상 과하게 차던 문제)
+    return [{ cat: '전체', budget: add('budget'), spent: add('spent'), carry: add('carry') }, ...rows];
   }
   // [가계부앱] 2026-11-23 : 이월액. 이월을 켠 달부터 ym 전달까지 매달 (예산 - 지출) 누적. 초과도 그대로 빼서 넘긴다
   function carryOf(state, cat, ym) {
@@ -213,7 +222,7 @@ const Core = (() => {
       for (;;) {
         const ts = repeatTs(r);
         if (ts > now) break;
-        state.tx.push({ id: state.seq++, ...r.tpl, ts });
+        state.tx.push({ id: state.seq++, ...r.tpl, ts, ...(r.id && { rid: r.id }) }); // [가계부앱] 2026-11-23 : rid = 만든 반복 설정 (피드백에서 고정비로 본다)
         r.n++; made++;
       }
     }
@@ -232,7 +241,7 @@ const Core = (() => {
     return out;
   }
 
-  return { HEADER, newState, serialToTs, tsToSerial, rowsToTx, txToRows, addAsset, addCat, importRows, balances, totals, sums, periodSums, byCategory,
+  return { HEADER, newState, serialToTs, tsToSerial, rowsToTx, txToRows, addAsset, addCat, importRows, balances, totals, isAdj, sums, periodSums, byCategory,
     dAdd, dow, weekStart, shiftYm, monthEnd, addMonths, between, weeksOf, catSums, flow, ledger, balanceAt, card, budgetRows, budgetOf, budCats, carryOf, runRepeats, repeatTs, instPlan, routineDue };
 })();
 
