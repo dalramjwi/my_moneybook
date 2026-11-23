@@ -254,3 +254,9 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 /* [가계부앱] 2026-11-23 : 피드백 카드 */
 .fbs { list-style: none; margin: 0; padding: 4px 12px 24px; } .fb { background: var(--card); border-left: 4px solid var(--sub); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; } .fb b { display: block; font-size: 16px; margin-bottom: 4px; } .fb p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text); }
 .fb.bad { border-color: var(--out); } .fb.bad b { color: var(--out); } .fb.warn { border-color: #f5a623; } .fb.good { border-color: #22c55e; } .fb.info { border-color: var(--in); }
+/* 자산 목록 : 메모 펼치기 버튼은 이름 앞에 */
+.alist .ic.sm { width: 24px; height: 24px; font-size: 15px; line-height: 1; margin-right: 2px; display: block; color: var(--sub); } .alist .sm0 { flex: none; width: 24px; margin-right: 2px; } .alist li { padding-left: 14px; }
+/* 메모 버튼의 + − 는 글자 대신 그림으로 (글꼴에 따라 원 안에서 어긋나지 않게) */
+.alist .ic.sm { display: flex; align-items: center; justify-content: center; padding: 0; } .alist .ic.sm svg { width: 12px; height: 12px; stroke-width: 2; display: block; }
+/* 루틴 · 할 일 목록은 글이 길면 줄을 바꿔 다 보여 준다 */
+.list.wrap .m b { white-space: normal; overflow: visible; } .list.wrap .c { width: 86px; } .form textarea[name="text"] { resize: none; line-height: 1.4; }

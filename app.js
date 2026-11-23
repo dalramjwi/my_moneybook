@@ -174,7 +174,7 @@ function todoBox() {
 const rtRule = r => (r.every === 'week' ? `매주 ${DAYS[r.dow]}요일` : r.every === 'once' ? r.date : `매월 ${r.day}일`);
 function pageRoutines() {
   const all = S.routines || [], row = r => `<li data-act="rtEdit" data-arg="${r.id}"${r.every === 'once' && r.done ? ' class="off"' : ''}><span class="c">${rtRule(r)}</span><span class="m"><b>${esc(r.text)}</b></span><span class="pen">${r.every === 'once' && r.done ? '✓' : ICON.pen}</span></li>`;
-  const sec = (title, items) => `<h3 class="gh">${title}</h3><ul class="list">${items.map(row).join('') || '<p class="empty">없음</p>'}</ul>`;
+  const sec = (title, items) => `<h3 class="gh">${title}</h3><ul class="list wrap">${items.map(row).join('') || '<p class="empty">없음</p>'}</ul>`;
   return `${head('루틴 · 할 일', '<button class="ic" data-act="rtEdit" data-arg="" aria-label="추가">＋</button>')}<p class="cap pad">날짜가 되면 가계부 탭 맨 위에 뜹니다. 반복은 체크하면 다음 회차까지 사라지고, 할 일은 체크하면 끝납니다. 앱을 닫아 둔 동안 폰 알림으로 뜨지는 않습니다.</p>
     ${sec('반복 (루틴)', all.filter(r => r.every !== 'once'))}${sec('할 일 (한 번)', all.filter(r => r.every === 'once').sort((x, y) => x.date.localeCompare(y.date)))}`;
 }
@@ -184,7 +184,7 @@ function pageRoutine(pg) {
     : r.every === 'once' ? `<label class="frow"><span>날짜</span><input type="date" name="date" value="${r.date || today()}" required></label>`
     : `<label class="frow"><span>일</span><input inputmode="numeric" autocomplete="off" data-unit="일" name="day" value="${r.day || ''}일" required></label>`;
   return `${head(r.id ? '루틴 · 할 일 수정' : '루틴 · 할 일 추가')}<form data-form="routine" class="form"><input type="hidden" name="id" value="${r.id || ''}">
-    <label class="frow"><span>내용</span><input name="text" value="${esc(r.text || '')}" placeholder="예: 카드 결제 대금 확인" autocomplete="off" required></label>
+    <label class="frow"><span>내용</span><textarea name="text" rows="${Math.max(2, Math.ceil((r.text || '').length / 16))}" placeholder="예: 카드 결제 대금 확인" required>${esc(r.text || '')}</textarea></label>
     <label class="frow"><span>주기</span><select name="every" data-change="rtEvery">${opt('month', '매월', r.every)}${opt('week', '매주', r.every)}${opt('once', '할 일 (한 번)', r.every)}</select></label>
     ${when}
     <div class="row"><button class="pri">저장하기</button>${r.id ? `<button type="button" data-act="rtDel" data-arg="${r.id}">삭제</button>` : ''}</div></form>`;
@@ -360,6 +360,7 @@ const ICON = {
   undo: svg('<path d="M3.6 4.2l1.1 5.4 5.3-1.3zM5.3 8.6A8.2 8.2 0 1 1 7.3 18.9"/>'),
   todo: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12.5l3 3 5-6"/>'),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
+  minus: svg('<path d="M5 12h14"/>'),
   rep: svg('<path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1"/>'),
 };
 const repLabel = t => (t.rep === 'inst' ? `할부 ${t.months}개월${Number(t.irate) > 0 ? `<br>연 ${Number(t.irate)}%` : ''}` : EVERY[t.rep] || '반복/할부'); // 버튼 안에 그대로 넣는다. 이자가 있으면 두 줄
@@ -509,8 +510,7 @@ function viewAssets() {
   const cards = Object.fromEntries(S.assets.filter(isCard).map(a => [a.name, Core.card(S, a.name, ym)]));
   const row = a => {
     const v = bal[a.name] || 0, c = cards[a.name], open = V.openMemo.has(a.name), pf = c && a.perf ? perfOf(a, ym) : 0;
-    return `<li data-act="asset" data-arg="${esc(a.name)}"><span class="m"><b>${esc(a.name)}</b>${c && a.perf && !a.deleted && pf < a.perf ? `<span class="perfl"><i class="pbar"><u style="width:${Math.min(100, pf / a.perf * 100)}%"></u></i><small>실적 ${Math.floor(pf / a.perf * 100)}%</small></span>` : ''}${a.deleted ? '<small>삭제됨</small>' : a.hidden ? '<small>숨김</small>' : ''}${isFx(a) ? `<small>${fx(a, bal[a.name] || 0)}</small>` : ''}</span>
-      ${a.memo ? `<button class="ic sm" data-act="memoTog" data-arg="${esc(a.name)}" aria-label="메모 ${open ? '접기' : '펼치기'}">${open ? '−' : '+'}</button>` : ''}
+    return `<li data-act="asset" data-arg="${esc(a.name)}">${a.memo ? `<button class="ic sm" data-act="memoTog" data-arg="${esc(a.name)}" aria-label="메모 ${open ? '접기' : '펼치기'}">${open ? ICON.minus : ICON.plus}</button>` : '<i class="sm0"></i>'}<span class="m"><b>${esc(a.name)}</b>${c && a.perf && !a.deleted && pf < a.perf ? `<span class="perfl"><i class="pbar"><u style="width:${Math.min(100, pf / a.perf * 100)}%"></u></i><small>실적 ${Math.floor(pf / a.perf * 100)}%</small></span>` : ''}${a.deleted ? '<small>삭제됨</small>' : a.hidden ? '<small>숨김</small>' : ''}${isFx(a) ? `<small>${fx(a, bal[a.name] || 0)}</small>` : ''}</span>
       ${c && !a.deleted ? `<span class="a">${won(c.due)}</span><span class="a out">${won(c.unpaid)}</span>` : `<span class="a ${sign(v)}">${won(v)}</span>`}</li>
       ${a.memo && open ? `<li class="note"><pre>${esc(a.memo)}</pre></li>` : ''}`;
   };
