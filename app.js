@@ -195,7 +195,7 @@ function viewBudget() {
   const pos = t.startsWith(V.ym) ? Number(t.slice(8)) / Number(Core.monthEnd(V.ym).slice(8)) * 100 : null;
   const bar = r => {
     const p = r.budget ? Math.floor(r.spent / r.budget * 100) : 0, over = r.spent > r.budget;
-    return `<li class="bud" data-act="budView" data-arg="${esc(r.cat)}"><div class="bl"><small>${esc(r.cat === '전체' ? '전체예산' : r.cat)}</small><b>${won(r.budget)}</b></div>
+    return `<li class="bud" data-act="budView" data-arg="${esc(r.cat)}"><div class="bl"><small>${esc(r.cat === '전체' ? '전체예산' : r.cat)}</small><b>${won(r.budget)}</b>${r.carry ? `<small class="carry${r.carry < 0 ? ' neg' : ''}">이월 ${r.carry > 0 ? '+' : ''}${won(r.carry)}</small>` : ''}</div>
       <div class="br">${pos != null && r.cat === '전체' ? `<em class="tod" style="left:${pos}%">오늘</em>` : ''}<div class="bar${over ? ' over' : ''}${p >= 85 ? ' full' : ''}"><i style="width:${Math.min(p, 100)}%"></i>${pos == null ? '' : `<u style="left:${pos}%"></u>`}<span>${r.budget ? p + '%' : '-'}</span></div>
       <div class="bv"><span class="${over ? 'out' : 'in'}">${won(r.spent)}</span><span>${over ? '초과 ' : ''}${won(r.budget - r.spent)}</span></div></div></li>`;
   };
@@ -267,8 +267,8 @@ function pageBudCat(pg) {
   const months = [...Array(12)].map((_, i) => `${pg.y}-${String(12 - i).padStart(2, '0')}`);
   return `${head(budLabel(c), `<div class="month"><button data-act="byear" data-arg="-1">‹</button><b>${pg.y}년</b><button data-act="byear" data-arg="1">›</button></div><button class="ic" data-act="budDel" aria-label="예산 삭제">${ICON.del}</button>`)}
     ${budInfo('기본 예산을 변경하면, 기본 예산은 다음달부터 적용됩니다. 월을 선택하면, 월별 예산을 설정할 수 있습니다.')}
-    <ul class="list bm"><li data-act="budBase"><span class="m"><b class="big">기본예산</b></span><span class="a"><b>${won(base)}</b></span></li>
-    ${months.map(ym => { const own = S.budgetM?.[c]?.[ym]; return `<li data-act="budMonth" data-arg="${ym}"><span class="m"><i class="mo${ym === cur ? ' on' : ''}">${Number(ym.slice(5))}월</i></span><span class="a">${won(Core.budgetRows(S, ym).find(r => r.cat === c)?.budget ?? 0)}</span></li>`; }).join('')}</ul>`;
+    <ul class="list bm"><li data-act="budRoll"><span class="m"><b class="big">이월</b><small>남은 돈·초과를 다음 달로 넘김</small></span><span class="a"><b>${S.budRoll?.[c] ? `${ymLabel(S.budRoll[c])}부터 · ${won(Core.carryOf(S, c, Core.shiftYm(cur, 1)))}` : '끔'}</b></span></li><li data-act="budBase"><span class="m"><b class="big">기본예산</b></span><span class="a"><b>${won(base)}</b></span></li>
+    ${months.map(ym => { const own = S.budgetM?.[c]?.[ym]; return `<li data-act="budMonth" data-arg="${ym}"><span class="m"><i class="mo${ym === cur ? ' on' : ''}">${Number(ym.slice(5))}월</i></span><span class="a">${won(Core.budgetOf(S, c, ym) ?? 0)}</span></li>`; }).join('')}</ul>`;
 }
 function pageBudView(pg) {
   const c = pg.cat, y = pg.ym.slice(0, 4), mine = t => t.type === '지출' && (c === '전체' || t.cat === c);
@@ -366,6 +366,11 @@ const ICON = {
 };
 const repLabel = t => (t.rep === 'inst' ? `할부 ${t.months}개월${Number(t.irate) > 0 ? `<br>연 ${Number(t.irate)}%` : ''}` : EVERY[t.rep] || '반복/할부'); // 버튼 안에 그대로 넣는다. 이자가 있으면 두 줄
 
+// [가계부앱] 2026-11-23 : 글 입력칸을 input·textarea 가 아닌 편집 가능한 div 로 그린다. 크롬이 자판 위에 띄우는 자동 완성 줄(열쇠·카드·주소)은 폼 입력칸에만 붙기 때문
+// 값은 옆의 숨은 input 에 그때그때 옮겨 두어 저장·다시 그리기는 다른 칸과 똑같이 동작한다
+const ce = (name, v, one) => `<div class="ce${one ? ' one' : ''}" contenteditable="plaintext-only" role="textbox" aria-label="${name === 'note' ? '내용' : '메모'}" enterkeyhint="${one ? 'done' : 'enter'}" data-ce="${name}"${one ? ' data-sug' : ''}>${esc(v || '')}</div><input type="hidden" name="${name}" value="${esc(v || '')}">`;
+const ceVal = el => (el.dataset.ce ? el.innerText.replace(/\u00a0/g, ' ') : el.value);
+
 function pageTx(pg) {
   const t = pg.t = { asset: '', cat: '', sub: '', note: '', amt: '', tag: '', memo: '', ...pg.t }, tr = t.type === '이체', names = liveNames();
   if (t.ts.length === 16) t.ts += ':00';
@@ -384,9 +389,9 @@ function pageTx(pg) {
     ${tr && !t.id ? `<div class="frow"><span>금액</span>${money('amt', t.amt)}<button type="button" class="mini" data-act="feeTog">수수료</button></div>${pg.fee || t.fee ? row('수수료', money('fee', t.fee, '출금 자산에서 지출로 잡힘')) : ''}` : row('금액', money('amt', t.amt))}
     ${tr ? prow('출금', 'asset', t.asset) + prow('입금', 'cat', t.cat) : prow('분류', 'cat', t.sub ? `${t.cat} / ${t.sub}` : t.cat) + prow('자산', 'asset', t.asset)
       + (isFx(fa) ? row(`${esc(fa.cur)} 금액`, `<input type="number" step="any" inputmode="decimal" name="famt" value="${t.famt || ''}" data-rate="${fa.rate}" placeholder="넣으면 환율 ${fa.rate} 로 원화 계산">`) : '')}
-    ${row('내용', `<textarea name="note" rows="1" class="one" enterkeyhint="done" data-sug>${esc(t.note)}</textarea><ul class="sug" hidden></ul>`)}
+    <div class="frow"><span>내용</span>${ce('note', t.note, true)}<ul class="sug" hidden></ul></div>
     <div class="gap"></div>
-    ${row('메모', `<textarea name="memo" rows="2">${esc(t.memo)}</textarea>`)}
+    <div class="frow"><span>메모</span>${ce('memo', t.memo, false)}</div>
     ${t.type === '지출' ? `<label class="chk"><input type="checkbox" name="noPerf"${t.noPerf ? ' checked' : ''}>카드 실적에서 제외</label>` : ''}
     <div class="row save"><button class="pri" name="go" value="save">저장하기</button>${t.id ? '' : '<button name="go" value="more">계속</button>'}</div>
     ${t.id ? `<div class="row acts"><button type="button" data-act="delTx" data-arg="${t.id}">${ICON.del}삭제</button><button type="button" data-act="copyTx" data-arg="${t.id}">${ICON.copy}복사</button><button type="button" data-act="favTx" data-arg="${t.id}">${ICON.star}자주사용</button></div>` : ''}
@@ -920,7 +925,7 @@ function render() {
   for (const b of $('#nav').children) b.classList.toggle('on', b.dataset.arg === V.tab);
   // [가계부앱] 2026-11-23 : 자판 위에 뜨는 크롬 자동 완성 줄(열쇠·카드·주소 아이콘)이 안 뜨게 모든 입력칸의 자동 완성을 끈다
   for (const el of $('#main').querySelectorAll?.('form, input, textarea') || []) if (!el.getAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
-  if (pg?.focus) { $(`[name="${pg.focus}"]`)?.focus?.(); delete pg.focus; } // 선택판을 닫은 뒤 다음 입력칸으로
+  if (pg?.focus) { ($(`[data-ce="${pg.focus}"]`) || $(`[name="${pg.focus}"]`))?.focus?.(); delete pg.focus; } // 선택판을 닫은 뒤 다음 입력칸으로
 }
 function done() { save(); if (V.stack.length) history.back(); else render(); }
 const lines = s => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -948,8 +953,15 @@ const ACT = {
   budBase: () => { const c = topPg().cat, v = prompt(`${c} 기본예산 (원)`, S.budgets[c] ?? ''); if (v == null) return;
     // 기본예산은 다음 달부터 적용 : 바꾸기 전에 첫 내역이 있는 달 ~ 이번 달의 예산을 월별 예산으로 굳혀 둔다
     const m = ((S.budgetM ||= {})[c] ||= {}), cur = today().slice(0, 7);
-    for (let ym = S.tx.reduce((a, t) => (t.ts < a ? t.ts : a), cur).slice(0, 7); ym <= cur; ym = Core.shiftYm(ym, 1)) m[ym] ??= Core.budgetRows(S, ym).find(r => r.cat === c).budget;
+    for (let ym = S.tx.reduce((a, t) => (t.ts < a ? t.ts : a), cur).slice(0, 7); ym <= cur; ym = Core.shiftYm(ym, 1)) m[ym] ??= Core.budgetOf(S, c, ym);
     S.budgets[c] = Math.round(toNum(v)) || 0;
+    save(); render();
+  },
+  // [가계부앱] 2026-11-23 : 이월 켜기(이번 달부터) / 끄기
+  budRoll: () => {
+    const c = topPg().cat, r = (S.budRoll ||= {});
+    if (r[c]) { if (!confirm(`"${budLabel(c)}" 이월을 끌까요? 쌓인 이월 ${won(Core.carryOf(S, c, Core.shiftYm(today().slice(0, 7), 1)))} 은 사라집니다.`)) return; delete r[c]; }
+    else r[c] = today().slice(0, 7);
     save(); render();
   },
   budMonth: ym => {
@@ -958,7 +970,7 @@ const ACT = {
     if (v.trim() === '') delete m[ym]; else m[ym] = Math.round(toNum(v)) || 0;
     save(); render();
   },
-  budDel: () => { const c = topPg().cat; if (confirm(`"${budLabel(c)}" 예산을 지울까요? 내역은 남습니다.`)) { delete S.budgets[c]; delete S.budgetM?.[c]; done(); } },
+  budDel: () => { const c = topPg().cat; if (confirm(`"${budLabel(c)}" 예산을 지울까요? 내역은 남습니다.`)) { delete S.budgets[c]; delete S.budgetM?.[c]; delete S.budRoll?.[c]; done(); } },
   fClear: () => { for (const s of Object.values(V.filter)) s.clear(); render(); },
   stat: a => { V.statType = a; render(); },
   sNav: a => { const n = Number(a); V.sDay = V.sMode === 'week' ? Core.dAdd(V.sDay, 7 * n) : Core.shiftYm(V.sDay.slice(0, 7), V.sMode === 'year' ? 12 * n : n) + '-01'; render(); },
@@ -1020,14 +1032,14 @@ const ACT = {
   assetEdit: name => go({ p: 'assetInfo', name }),
   cats: type => go({ p: 'cats', type }),
   catAdd: () => { const name = (prompt('새 분류 이름') || '').trim(); if (name) { Core.addCat(S, topPg().type, name); save(); render(); } },
-  catDel: i => { const list = S.cats[topPg().type]; if (confirm(`"${list[i]}" 분류를 목록에서 뺄까요? 내역은 남습니다.`)) { delete S.budgets[list[i]]; delete S.budgetM?.[list[i]]; delete S.subs[list[i]]; list.splice(i, 1); save(); render(); } },
+  catDel: i => { const list = S.cats[topPg().type]; if (confirm(`"${list[i]}" 분류를 목록에서 뺄까요? 내역은 남습니다.`)) { delete S.budgets[list[i]]; delete S.budgetM?.[list[i]]; delete S.budRoll?.[list[i]]; delete S.subs[list[i]]; list.splice(i, 1); save(); render(); } },
   catRen: i => {
     const type = topPg().type, list = S.cats[type], old = list[i], name = (prompt('분류 이름', old) || '').trim();
     if (!name || name === old) return;
     if (list.includes(name)) return alert('같은 이름의 분류가 있습니다.');
     list[i] = name;
     for (const t of [...S.tx, ...S.favs, ...S.repeats.map(r => r.tpl)]) if (t.type === type && t.cat === old) t.cat = name;
-    if (type === '지출' && S.budgets[old] != null) { S.budgets[name] = S.budgets[old]; delete S.budgets[old]; if (S.budgetM?.[old]) { S.budgetM[name] = S.budgetM[old]; delete S.budgetM[old]; } }
+    if (type === '지출' && S.budgets[old] != null) { S.budgets[name] = S.budgets[old]; delete S.budgets[old]; if (S.budgetM?.[old]) { S.budgetM[name] = S.budgetM[old]; delete S.budgetM[old]; } if (S.budRoll?.[old]) { S.budRoll[name] = S.budRoll[old]; delete S.budRoll[old]; } }
     if (S.subs[old]) { S.subs[name] = S.subs[old]; delete S.subs[old]; }
     for (const pg of V.stack) if (pg.p === 'tx' && pg.t.type === type && pg.t.cat === old) pg.t.cat = name;
     save(); render();
@@ -1116,7 +1128,7 @@ const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
 const cho = c => { const n = c.charCodeAt(0) - 0xac00; return n >= 0 && n < 11172 ? CHO[Math.floor(n / 588)] : c; };
 const sugMatch = (note, q) => { for (let i = 0; i + q.length <= note.length; i++) if ([...q].every((c, j) => c === note[i + j] || (CHO.includes(c) && cho(note[i + j]) === c))) return true; return false; };
 const sugShow = el => {
-  const q = el.value.trim(), ul = el.parentElement.querySelector('.sug');
+  const q = ceVal(el).trim(), ul = el.parentElement.querySelector('.sug');
   const list = q ? [...new Set([...S.tx].sort(desc).map(x => x.note).filter(Boolean))].filter(n => n !== q && sugMatch(n, q)).slice(0, 8) : [];
   ul.innerHTML = list.map(n => `<li>${esc(n)}</li>`).join('');
   ul.hidden = !list.length;
@@ -1127,9 +1139,15 @@ document.addEventListener('pointerdown', e => { // 누르는 순간 반영 (focu
   const li = e.target.closest?.('.sug li'); if (!li) return;
   e.preventDefault();
   const el = li.closest('.frow').querySelector('[data-sug]');
-  el.value = li.textContent;
+  if (el.dataset.ce) el.textContent = li.textContent; else el.value = li.textContent;
   el.dispatchEvent(new Event('input', { bubbles: true })); // 수정 표시(dirty) 갱신
   li.parentElement.hidden = true;
+});
+// 편집 가능한 div 에 친 글을 숨은 input 으로 옮기고, 수정 화면이면 저장하기 버튼으로 바꾼다
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset?.ce) return;
+  el.parentElement.querySelector(`input[name="${el.dataset.ce}"]`).value = el.classList.contains('one') ? ceVal(el).replace(/\n/g, ' ') : ceVal(el).replace(/\n$/, '');
+  const f = el.closest('form'); if (f?.dataset.form === 'tx' && topPg()?.p === 'tx') { topPg().dirty = true; f.classList.add('dirty'); }
 });
 // [가계부앱] 2026-11-23 : 내용 칸은 한 줄 textarea. 크롬 자동완성 막대(열쇠·카드·위치)는 input 에만 붙어서. 줄바꿈은 막는다
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList?.contains('one')) { e.preventDefault(); if (!e.isComposing) e.target.blur(); } });

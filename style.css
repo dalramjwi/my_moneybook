@@ -268,3 +268,8 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 .sug li:active { background: var(--soft); }
 /* [가계부앱] 2026-11-23 : 한 줄 textarea (내용 칸) 를 input 처럼 */
 .form textarea.one { resize: none; overflow: hidden; white-space: nowrap; height: auto; line-height: 1.4; }
+/* 편집 가능한 div 로 그린 글 입력칸 (내용·메모) */
+.form .frow .ce { flex: 1; min-width: 0; padding: 12px 4px; border-bottom: 1px solid var(--line); outline: none; font-size: 16px; line-height: 1.4; min-height: calc(1.4em + 24px); white-space: pre-wrap; word-break: break-all; -webkit-user-select: text; user-select: text; }
+.form .frow .ce.one { white-space: nowrap; overflow: hidden; } .form .frow .ce:not(.one) { min-height: calc(2.8em + 24px); } .form .frow .ce:focus { border-bottom-color: var(--accent); }
+/* [가계부앱] 2026-11-23 : 결산 이월 표시 */
+.bl small.carry { display: block; font-size: 12px !important; color: var(--in); } .bl small.carry.neg { color: var(--out); }

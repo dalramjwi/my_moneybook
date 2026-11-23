@@ -13,6 +13,7 @@ const Core = (() => {
     favs: [], memos: [],
     budgets: {}, // { 분류: 금액, 전체: 금액 }. 기본예산
     budgetM: {}, // { 분류: { 'YYYY-MM': 금액 } }. 그 달에만 쓰는 예산
+    budRoll: {}, // [가계부앱] 2026-11-23 : { 분류: 'YYYY-MM' }. 이월을 켠 달. 그 달부터 (예산 - 지출)이 다음 달로 넘어간다
     subs: {}, // { 분류: [소분류, ...] } 분류 관리에서 정해 둔 소분류 목록
     routines: [], // { id, text, every: month|week|once, day, dow, date, since: 등록한 날, done: 마지막으로 체크한 회차 날짜 }
     repeats: [], // { id, every: week|month|year, start, n: 다음 회차 번호, tpl: 내역 틀 }
@@ -157,12 +158,20 @@ const Core = (() => {
     return { perf, due, unpaid: Math.max(0, -bal) - due };
   }
 
-  // 예산 : [{ cat, budget, spent }]. 맨 앞이 전체. 전체예산은 항상 분류 예산의 합 (예전 자료의 budgets.전체 는 쓰지 않는다)
+  // 예산 : [{ cat, budget, spent, carry }]. 맨 앞이 전체. 전체예산은 항상 분류 예산의 합 (예전 자료의 budgets.전체 는 쓰지 않는다)
+  // [가계부앱] 2026-11-23 : budget 은 그 달에 쓸 수 있는 금액 = 그 달 예산 + 이월(carry). 그 달 예산만 필요하면 budgetOf
   function budgetRows(state, ym) {
     const list = state.tx.filter(t => t.ts.startsWith(ym)), spent = Object.fromEntries(catSums(list, '지출'));
-    const cats = budCats(state);
-    const total = cats.reduce((s, c) => s + budgetOf(state, c, ym), 0);
-    return [{ cat: '전체', budget: total, spent: sums(list).expense }, ...cats.map(cat => ({ cat, budget: budgetOf(state, cat, ym), spent: spent[cat] || 0 }))];
+    const rows = budCats(state).map(cat => { const carry = carryOf(state, cat, ym); return { cat, budget: (budgetOf(state, cat, ym) || 0) + carry, spent: spent[cat] || 0, carry }; });
+    const add = k => rows.reduce((s, r) => s + r[k], 0);
+    return [{ cat: '전체', budget: add('budget'), spent: sums(list).expense, carry: add('carry') }, ...rows];
+  }
+  // [가계부앱] 2026-11-23 : 이월액. 이월을 켠 달부터 ym 전달까지 매달 (예산 - 지출) 누적. 초과도 그대로 빼서 넘긴다
+  function carryOf(state, cat, ym) {
+    const start = state.budRoll?.[cat];
+    let s = 0;
+    if (start) for (let m = start; m < ym; m = shiftYm(m, 1)) s += (budgetOf(state, cat, m) || 0) - (Object.fromEntries(catSums(state.tx.filter(t => t.ts.startsWith(m)), '지출'))[cat] || 0);
+    return s;
   }
   // [가계부앱] 2026-11-23 : 예산 있는 분류를 지출 분류 순서대로 (분류 목록에 없는 건 뒤에, 넣은 순서)
   const budCats = state => { const order = state.cats?.지출 || [], rank = c => (order.indexOf(c) + 1 || 1e9); return Object.keys(state.budgets || {}).filter(c => c !== '전체').sort((a, b) => rank(a) - rank(b)); };
@@ -224,7 +233,7 @@ const Core = (() => {
   }
 
   return { HEADER, newState, serialToTs, tsToSerial, rowsToTx, txToRows, addAsset, addCat, importRows, balances, totals, sums, periodSums, byCategory,
-    dAdd, dow, weekStart, shiftYm, monthEnd, addMonths, between, weeksOf, catSums, flow, ledger, balanceAt, card, budgetRows, budgetOf, budCats, runRepeats, repeatTs, instPlan, routineDue };
+    dAdd, dow, weekStart, shiftYm, monthEnd, addMonths, between, weeksOf, catSums, flow, ledger, balanceAt, card, budgetRows, budgetOf, budCats, carryOf, runRepeats, repeatTs, instPlan, routineDue };
 })();
 
 if (typeof module !== 'undefined') module.exports = Core;
