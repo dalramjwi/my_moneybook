@@ -1,0 +1,6 @@
+# 실제 금액·이름이 든 파일은 올리지 않는다
+spec/
+*.xlsx
+*.jpg
+*.json
+!manifest.webmanifest

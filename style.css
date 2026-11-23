@@ -1,0 +1,104 @@
+/* [가계부앱] 2026-11-20 : 화면 스타일 (폰 세로 기준, 다크 모드는 기기 설정을 따름) */
+/* [가계부앱] 2026-11-23 : 색 계열을 붉은 주황으로 변경, 화면 전환용 입력 폼·달력·월별·예산·필터·자산 상세 스타일 추가 */
+:root {
+  --bg: #f5f6f8; --card: #fff; --line: #e4e6ea; --text: #1d1f23; --sub: #8b9097;
+  --accent: #ff6058; --in: #2a8be6; --out: #f0583a; --soft: #fff0ee;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #131417; --card: #1d1f23; --line: #2e3136; --text: #e8eaed; --sub: #8f949b; --accent: #ff7067; --in: #6aaef0; --out: #ff8a70; --soft: #3a2422; }
+}
+* { box-sizing: border-box; }
+body { margin: 0 auto; max-width: 560px; background: var(--bg); color: var(--text); font: 16px/1.4 system-ui, sans-serif; padding-bottom: 72px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button, select { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+.in { color: var(--in); } .out { color: var(--out); }
+.ic { border: 0; font-size: 20px; padding: 4px 10px; background: none; } .ic.sm { border: 1px solid var(--line); border-radius: 50%; width: 28px; height: 28px; padding: 0; font-size: 16px; flex: none; }
+.grow { flex: 1; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
+header b { font-size: 18px; font-weight: 500; } header button.on { border-color: var(--accent); color: var(--accent); }
+.month { display: flex; align-items: center; gap: 4px; } .month b { white-space: nowrap; }
+.month button { border: 0; font-size: 22px; padding: 0 10px; background: none; }
+.month input { border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: var(--card); max-width: 140px; font-size: 14px; }
+.search { width: calc(100% - 32px); margin: 8px 16px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--line); }
+.tabs button { flex: 1; border: 0; border-radius: 0; border-bottom: 3px solid transparent; color: var(--sub); padding: 10px 4px; }
+.tabs .on { color: var(--text); border-bottom-color: var(--accent); font-weight: 700; }
+.chip { margin: 0; padding: 6px 16px; background: var(--soft); font-size: 13px; } .chip button { padding: 2px 8px; margin-left: 6px; }
+.cap { margin: 0; padding: 8px 16px; font-size: 13px; color: var(--sub); }
+
+.sum { display: flex; background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 0; text-align: center; font-size: 13px; color: var(--sub); }
+.sum div { flex: 1; } .sum b { display: block; font-size: 16px; font-weight: 400; color: var(--text); font-variant-numeric: tabular-nums; } .sum b.in { color: var(--in); } .sum b.out { color: var(--out); }
+.sum.perf { background: var(--bg); } .sum.perf b { font-size: 14px; }
+
+h3 { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; padding: 8px 16px; background: var(--card); border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 400; color: var(--sub); }
+h3 b { font-size: 22px; color: var(--text); } h3 b.mid { font-size: 16px; } h3 span { margin-left: auto; } h3 span + span { margin-left: 12px; }
+h3.plain { margin-top: 0; }
+.wd { font-style: normal; font-size: 11px; color: #fff; background: #8b8f96; border-radius: 4px; padding: 1px 5px; } .wd.w0 { background: var(--accent); } .wd.w6 { background: var(--in); }
+.list { list-style: none; margin: 0; padding: 0; background: var(--card); }
+.list li, .frowc { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+.list .c { width: 84px; flex: none; font-size: 13px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list .m, .frowc .m { flex: 1; min-width: 0; } .list .m b { display: block; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .list .m b.big { font-size: 18px; font-weight: 600; }
+.list small, .frowc small { display: block; color: var(--sub); font-size: 12px; }
+.list .a, .frowc .a { flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.list li.wk { background: var(--bg); padding-left: 40px; font-size: 14px; } .list li.wk.now { background: var(--soft); }
+.list li.note, pre.note { background: var(--bg); } .note pre, pre.note { margin: 0; white-space: pre-wrap; font: inherit; font-size: 14px; color: var(--sub); } pre.note { padding: 10px 16px; }
+.list.flush { margin: 0 -16px; }
+.pct { flex: none; width: 46px; text-align: center; color: #fff; border-radius: 6px; font-size: 13px; padding: 2px 0; }
+.pie { width: 200px; aspect-ratio: 1; border-radius: 50%; margin: 20px auto; }
+.empty { text-align: center; color: var(--sub); padding: 32px 16px; margin: 0; }
+details { margin-top: 10px; } summary { padding: 10px 16px; color: var(--sub); }
+
+/* 달력 */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); background: var(--card); }
+.cal em { font-style: normal; text-align: center; font-size: 12px; color: var(--sub); padding: 6px 0; border-bottom: 1px solid var(--line); }
+.cal button { min-height: 64px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 4px 2px; text-align: left; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-width: 0; }
+.cal button b { font-weight: 400; font-size: 13px; align-self: flex-start; } .cal .today b { background: var(--accent); color: #fff; border-radius: 4px; padding: 0 4px; }
+.cal small { display: block; font-size: 10px; text-align: right; overflow: hidden; }
+
+/* 예산 */
+.bud { align-items: flex-start !important; } .bl { width: 110px; flex: none; } .bl small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bl b { font-weight: 400; }
+.br { flex: 1; min-width: 0; }
+.bar { position: relative; height: 24px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: #5aa5f5; } .bar.over i { background: #ff7a70; }
+.bar u { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--sub); }
+.bar span { position: absolute; right: 8px; top: 2px; font-size: 13px; }
+.bv { display: flex; justify-content: space-between; font-size: 14px; margin-top: 2px; }
+
+/* 필터 */
+.rings { display: flex; align-items: center; justify-content: space-around; background: var(--card); padding: 12px 8px; text-align: center; }
+.ring small { display: block; color: var(--sub); } .ring span { font-size: 13px; }
+.ring div { width: 84px; aspect-ratio: 1; border-radius: 50%; margin: 4px auto; display: grid; place-items: center; }
+.ring div b { width: 64px; aspect-ratio: 1; border-radius: 50%; background: var(--card); display: grid; place-items: center; font-weight: 400; }
+.frowc input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
+
+.fab { position: fixed; right: max(16px, calc(50vw - 264px)); bottom: 84px; width: 56px; height: 56px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 28px; box-shadow: 0 2px 8px #0004; padding: 0; }
+.fab.two { right: max(84px, calc(50vw - 196px)); background: var(--card); color: var(--accent); border: 1px solid var(--accent); font-size: 15px; }
+nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; max-width: 560px; margin: 0 auto; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+nav button { flex: 1; border: 0; border-radius: 0; padding: 16px 0; color: var(--sub); }
+nav .on { color: var(--accent); font-weight: 600; }
+
+.pad { padding: 12px 16px; } .pad > button { display: block; width: 100%; margin: 8px 0; text-align: left; } .pad > button.pri { text-align: center; padding: 12px; }
+.pad h3 { margin: 16px -16px 8px; }
+form label { display: block; margin: 10px 0; font-size: 13px; color: var(--sub); }
+form input:not([type=radio]):not([type=checkbox]):not([type=file]), form select, form textarea { display: block; width: 100%; margin-top: 4px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 16px; }
+/* 화면 전환식 입력 폼 : 왼쪽에 이름, 오른쪽에 밑줄만 있는 입력칸 */
+.form { background: var(--card); padding: 12px 16px 24px; min-height: 70vh; }
+.form .frow { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; } .form .frow > span { width: 86px; flex: none; }
+.form .frow > :last-child { flex: 1; min-width: 0; }
+.form .frow input:not([type=file]), .form .frow select, .form .frow textarea { margin: 0 !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; background: none !important; padding: 12px 4px !important; }
+.form .gap { height: 10px; margin: 12px -16px; background: var(--bg); }
+.form details { margin: 10px -16px 0; padding: 0 16px; border-top: 1px solid var(--line); } .form summary { padding: 10px 0; } .form .cap { padding: 0 0 4px; }
+.photo { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; margin: 8px 0; }
+.chk { display: flex !important; align-items: center; gap: 8px; color: var(--text) !important; font-size: 16px !important; }
+.seg { display: flex; gap: 8px; margin-bottom: 8px; } .seg label { flex: 1; margin: 0; } .seg input { position: absolute; opacity: 0; }
+.seg span { display: block; text-align: center; padding: 9px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--sub); font-size: 16px; }
+.seg input:checked + span { background: var(--card); border-color: currentColor; font-weight: 600; } .seg input:checked + span.in { color: var(--in); } .seg input:checked + span.out { color: var(--out); } .seg input:checked + span.tr { color: var(--text); }
+.seg input:focus-visible + span { outline: 2px solid var(--in); }
+.t-in .pri { background: var(--in); border-color: var(--in); } .t-tr .pri { background: #4a4a4a; border-color: #4a4a4a; }
+.row { display: flex; gap: 8px; margin-top: 16px; } .row button { flex: 1; padding: 12px 8px; } .row .pri { flex: 3; }
+.memo { list-style: none; margin: 0; padding: 0 16px; } .memo li { background: #fdeb96; color: #1d1f23; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.memo pre { margin: 0 0 8px; white-space: pre-wrap; font: inherit; } .memo button { color: #1d1f23; background: #fff8; }
+.chart { display: block; width: 100%; background: var(--card); } .chart polyline { fill: none; stroke: var(--accent); stroke-width: 2; } .chart circle { fill: var(--accent); } .chart line { stroke: var(--line); }
