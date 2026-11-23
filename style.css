@@ -266,3 +266,5 @@ h3.gh { margin: 0; padding: 26px 24px 8px; background: var(--bg); font-size: 15p
 .sug { position: absolute; left: 94px; right: 0; top: 100%; z-index: 20; margin: 2px 0 0; padding: 4px 0; list-style: none; background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.12); max-height: 40vh; overflow-y: auto; }
 .sug li { padding: 10px 12px; font-size: 15px; color: var(--text); cursor: pointer; }
 .sug li:active { background: var(--soft); }
+/* [가계부앱] 2026-11-23 : 한 줄 textarea (내용 칸) 를 input 처럼 */
+.form textarea.one { resize: none; overflow: hidden; white-space: nowrap; height: auto; line-height: 1.4; }

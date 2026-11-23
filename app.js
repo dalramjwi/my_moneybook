@@ -375,7 +375,6 @@ function pageTx(pg) {
   const row = (label, inner) => `<label class="frow"><span>${label}</span>${inner}</label>`;
   const fld = (k, text) => `<button type="button" class="fld${pg.pick === k ? ' on' : ''}" data-act="sheet" data-arg="${k}">${esc(text) || '&nbsp;'}</button>`;
   const prow = (label, k, text) => `<div class="frow"><span>${label}</span>${fld(k, text)}</div>`;
-  const txt = (name, extra = '') => `<input name="${name}" value="${esc(t[name])}" ${extra}>`;
   return `${head(t.type)}<form data-form="tx" class="form t-${cls(t.type)}${pg.pick ? ' picking' : ''}${t.id ? ' edit' : ''}${pg.dirty ? ' dirty' : ''}">
     <input type="hidden" name="id" value="${t.id ?? ''}"><input type="hidden" name="sub" value="${esc(t.sub)}">
     <input type="hidden" name="ts" value="${t.ts}"><input type="hidden" name="cat" value="${esc(t.cat)}"><input type="hidden" name="asset" value="${esc(t.asset)}">
@@ -385,7 +384,7 @@ function pageTx(pg) {
     ${tr && !t.id ? `<div class="frow"><span>금액</span>${money('amt', t.amt)}<button type="button" class="mini" data-act="feeTog">수수료</button></div>${pg.fee || t.fee ? row('수수료', money('fee', t.fee, '출금 자산에서 지출로 잡힘')) : ''}` : row('금액', money('amt', t.amt))}
     ${tr ? prow('출금', 'asset', t.asset) + prow('입금', 'cat', t.cat) : prow('분류', 'cat', t.sub ? `${t.cat} / ${t.sub}` : t.cat) + prow('자산', 'asset', t.asset)
       + (isFx(fa) ? row(`${esc(fa.cur)} 금액`, `<input type="number" step="any" inputmode="decimal" name="famt" value="${t.famt || ''}" data-rate="${fa.rate}" placeholder="넣으면 환율 ${fa.rate} 로 원화 계산">`) : '')}
-    ${row('내용', txt('note', 'autocomplete="off" data-sug') + '<ul class="sug" hidden></ul>')}
+    ${row('내용', `<textarea name="note" rows="1" class="one" enterkeyhint="done" data-sug>${esc(t.note)}</textarea><ul class="sug" hidden></ul>`)}
     <div class="gap"></div>
     ${row('메모', `<textarea name="memo" rows="2">${esc(t.memo)}</textarea>`)}
     ${t.type === '지출' ? `<label class="chk"><input type="checkbox" name="noPerf"${t.noPerf ? ' checked' : ''}>카드 실적에서 제외</label>` : ''}
@@ -1129,6 +1128,17 @@ document.addEventListener('pointerdown', e => { // 누르는 순간 반영 (focu
   el.value = li.textContent;
   el.dispatchEvent(new Event('input', { bubbles: true })); // 수정 표시(dirty) 갱신
   li.parentElement.hidden = true;
+});
+// [가계부앱] 2026-11-23 : 내용 칸은 한 줄 textarea. 크롬 자동완성 막대(열쇠·카드·위치)는 input 에만 붙어서. 줄바꿈은 막는다
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList?.contains('one')) { e.preventDefault(); if (!e.isComposing) e.target.blur(); } });
+document.addEventListener('input', e => { if (e.target.classList?.contains('one') && /\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\n/g, ' '); });
+// [가계부앱] 2026-11-23 : 선택판(분류·자산 등)이 열린 채 다른 입력칸을 누르면 선택판을 닫는다. 다시 그리지 않고 지워서 키보드·포커스 유지
+document.addEventListener('focusin', e => {
+  const pg = topPg(), f = e.target.form;
+  if (!pg?.pick || f?.dataset?.form !== 'tx' || !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  pg.pick = ''; pg.pcat = undefined;
+  document.querySelectorAll('#main .sheet, #main .modal').forEach(x => x.remove());
+  f.classList.remove('picking'); f.querySelectorAll('.fld.on').forEach(x => x.classList.remove('on'));
 });
 document.addEventListener('submit', e => {
   e.preventDefault();
