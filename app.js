@@ -359,7 +359,7 @@ const ICON = {
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   rep: svg('<path d="M17 3l3 3-3 3M20 6H8a4 4 0 0 0-4 4v1M7 21l-3-3 3-3M4 18h12a4 4 0 0 0 4-4v-1"/>'),
 };
-const repLabel = t => (t.rep === 'inst' ? `할부 ${t.months}개월${Number(t.irate) > 0 ? ` ${t.irate}%` : ''}` : EVERY[t.rep] || '반복/할부');
+const repLabel = t => (t.rep === 'inst' ? `할부 ${t.months}개월${Number(t.irate) > 0 ? `<br>연 ${Number(t.irate)}%` : ''}` : EVERY[t.rep] || '반복/할부'); // 버튼 안에 그대로 넣는다. 이자가 있으면 두 줄
 
 function pageTx(pg) {
   const t = pg.t = { asset: '', cat: '', sub: '', note: '', amt: '', tag: '', memo: '', ...pg.t }, tr = t.type === '이체', names = liveNames();
@@ -377,8 +377,7 @@ function pageTx(pg) {
     <input type="hidden" name="id" value="${t.id ?? ''}"><input type="hidden" name="sub" value="${esc(t.sub)}">
     <input type="hidden" name="ts" value="${t.ts}"><input type="hidden" name="cat" value="${esc(t.cat)}"><input type="hidden" name="asset" value="${esc(t.asset)}">
     <div class="seg">${['수입', '지출', '이체'].map(k => `<label><input type="radio" name="type" value="${k}" data-change="txType"${k === t.type ? ' checked' : ''}><span class="${cls(k)}">${k}</span></label>`).join('')}</div>
-    <div class="frow"><span>날짜</span><span class="two">${fld('date', dateLabel(t.ts))}${fld('time', hm(t.ts))}</span></div>
-    ${t.id ? '' : `<div class="frow"><span>반복/할부</span><button type="button" class="fld rep2${t.rep ? ' on' : ''}" data-act="sheet" data-arg="repMenu">${t.rep ? repLabel(t) : '없음'}</button></div>`}
+    <div class="frow"><span>날짜</span><span class="two">${fld('date', dateLabel(t.ts))}${fld('time', hm(t.ts))}${t.id ? '' : `<button type="button" class="rep${t.rep ? ' on' : ''}" data-act="sheet" data-arg="repMenu">${ICON.rep}<small>${repLabel(t)}</small></button>`}</span></div>
     ${t.id ? '' : `<input type="hidden" name="rep" value="${t.rep || ''}"><input type="hidden" name="months" value="${t.months || ''}"><input type="hidden" name="irate" value="${t.irate || ''}">`}
     ${tr && !t.id ? `<div class="frow"><span>금액</span>${money('amt', t.amt)}<button type="button" class="mini" data-act="feeTog">수수료</button></div>${pg.fee || t.fee ? row('수수료', money('fee', t.fee, '출금 자산에서 지출로 잡힘')) : ''}` : row('금액', money('amt', t.amt))}
     ${tr ? prow('출금', 'asset', t.asset) + prow('입금', 'cat', t.cat) : prow('분류', 'cat', t.sub ? `${t.cat} / ${t.sub}` : t.cat) + prow('자산', 'asset', t.asset)
