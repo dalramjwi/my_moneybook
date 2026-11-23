@@ -173,17 +173,19 @@ function todoBox() {
 }
 const rtRule = r => (r.every === 'week' ? `매주 ${DAYS[r.dow]}요일` : r.every === 'once' ? r.date : `매월 ${r.day}일`);
 function pageRoutines() {
-  return `${head('루틴', '<button class="ic" data-act="rtEdit" data-arg="" aria-label="루틴 추가">＋</button>')}<p class="cap pad">날짜가 되면 가계부 탭 맨 위에 뜹니다. 체크하면 다음 회차까지 사라집니다. 앱을 닫아 둔 동안 폰 알림으로 뜨지는 않습니다.</p>
-    <ul class="list">${(S.routines || []).map(r => `<li data-act="rtEdit" data-arg="${r.id}"><span class="c">${rtRule(r)}</span><span class="m"><b>${esc(r.text)}</b></span><span class="pen">${ICON.pen}</span></li>`).join('') || '<p class="empty">오른쪽 위 ＋ 로 추가합니다.</p>'}</ul>`;
+  const all = S.routines || [], row = r => `<li data-act="rtEdit" data-arg="${r.id}"${r.every === 'once' && r.done ? ' class="off"' : ''}><span class="c">${rtRule(r)}</span><span class="m"><b>${esc(r.text)}</b></span><span class="pen">${r.every === 'once' && r.done ? '✓' : ICON.pen}</span></li>`;
+  const sec = (title, items) => `<h3 class="gh">${title}</h3><ul class="list">${items.map(row).join('') || '<p class="empty">없음</p>'}</ul>`;
+  return `${head('루틴 · 할 일', '<button class="ic" data-act="rtEdit" data-arg="" aria-label="추가">＋</button>')}<p class="cap pad">날짜가 되면 가계부 탭 맨 위에 뜹니다. 반복은 체크하면 다음 회차까지 사라지고, 할 일은 체크하면 끝납니다. 앱을 닫아 둔 동안 폰 알림으로 뜨지는 않습니다.</p>
+    ${sec('반복 (루틴)', all.filter(r => r.every !== 'once'))}${sec('할 일 (한 번)', all.filter(r => r.every === 'once').sort((x, y) => x.date.localeCompare(y.date)))}`;
 }
 function pageRoutine(pg) {
   const r = pg.r, opt = (v, l, cur) => `<option value="${v}"${String(cur) === String(v) ? ' selected' : ''}>${l}</option>`;
   const when = r.every === 'week' ? `<label class="frow"><span>요일</span><select name="dow">${DAYS.map((d, i) => opt(i, d + '요일', r.dow ?? 1)).join('')}</select></label>`
     : r.every === 'once' ? `<label class="frow"><span>날짜</span><input type="date" name="date" value="${r.date || today()}" required></label>`
     : `<label class="frow"><span>일</span><input inputmode="numeric" autocomplete="off" data-unit="일" name="day" value="${r.day || ''}일" required></label>`;
-  return `${head(r.id ? '루틴 수정' : '루틴 추가')}<form data-form="routine" class="form"><input type="hidden" name="id" value="${r.id || ''}">
+  return `${head(r.id ? '루틴 · 할 일 수정' : '루틴 · 할 일 추가')}<form data-form="routine" class="form"><input type="hidden" name="id" value="${r.id || ''}">
     <label class="frow"><span>내용</span><input name="text" value="${esc(r.text || '')}" placeholder="예: 카드 결제 대금 확인" autocomplete="off" required></label>
-    <label class="frow"><span>주기</span><select name="every" data-change="rtEvery">${opt('month', '매월', r.every)}${opt('week', '매주', r.every)}${opt('once', '특정 날짜 한 번', r.every)}</select></label>
+    <label class="frow"><span>주기</span><select name="every" data-change="rtEvery">${opt('month', '매월', r.every)}${opt('week', '매주', r.every)}${opt('once', '할 일 (한 번)', r.every)}</select></label>
     ${when}
     <div class="row"><button class="pri">저장하기</button>${r.id ? `<button type="button" data-act="rtDel" data-arg="${r.id}">삭제</button>` : ''}</div></form>`;
 }
@@ -426,7 +428,7 @@ function saveTx(v) {
 }
 
 const pageFavs = () => `${head('자주 사용하는 내역')}<ul class="list">${S.favs.map((f, i) => `<li data-act="useFav" data-arg="${i}"><span class="c">${esc(f.type === '이체' ? '이체' : f.cat)}</span>
-  <span class="m"><b>${esc(f.note)}</b><small>${esc(f.type === '이체' ? `${f.asset} → ${f.cat}` : f.asset)}</small></span><span class="a ${cls(f.type)}">${won(f.amt)}</span>
+  <span class="m"><b>${esc(f.note)}</b><small>${esc(f.type === '이체' ? `${f.asset} → ${f.cat}` : f.asset)}</small></span><span class="a ${cls(f.type)}">${f.amt ? won(f.amt) : ""}</span>
   <button data-act="delFav" data-arg="${i}">삭제</button></li>`).join('') || '<p class="empty">내역 상세의 "자주사용"으로 추가합니다.</p>'}</ul>`;
 
 // ---------- 통계 ----------
@@ -760,7 +762,7 @@ const EVERY = { day: '매일', weekday: '주중', weekend: '주말', week: '매�
 const menuList = items => `<ul class="list alist">${items.map(([label, act, arg = '', right = '']) => `<li data-act="${act}" data-arg="${arg}"><span class="m"><b>${label}</b></span>${right ? `<span class="a out">${right}</span>` : ''}</li>`).join('')}</ul>`;
 const viewMore = () => `<header><b>설정</b></header>
   <p class="cap pad">내역 ${num(S.tx.length)}건 · 자산 ${S.assets.filter(a => !a.deleted).length}개. 데이터는 이 기기에만 저장됩니다.</p>
-  <div class="mgrid">${[['setMgmt', '설정관리', ICON.gear], ['backup', '백업/복원', ICON.undo], ['routines', '루틴 관리', ICON.todo], ['budgetSet', '예산 설정', ICON.budget], ['repeats', '반복 내역', ICON.rep], ['favs', '자주 사용', ICON.star]].map(([k, l, ic]) => `<button data-act="go" data-arg="${k}">${ic}<span>${l}</span></button>`).join('')}</div>`;
+  <div class="mgrid">${[['setMgmt', '설정관리', ICON.gear], ['backup', '백업/복원', ICON.undo], ['routines', '루틴 · 할 일', ICON.todo], ['budgetSet', '예산 설정', ICON.budget], ['repeats', '반복 내역', ICON.rep], ['favs', '자주 사용', ICON.star]].map(([k, l, ic]) => `<button data-act="go" data-arg="${k}">${ic}<span>${l}</span></button>`).join('')}</div>`;
 function pageSetMgmt(pg) {
   const dlg = pg.dlg === 'cardMode' ? `<div class="modal" data-act="setDlg" data-arg=""><div class="dlg glist" data-act="nop"><b>카드지출 반영방법<button type="button" class="ic" data-act="setDlg" data-arg="" aria-label="닫기">✕</button></b>
       <p>카드를 사용하는 시점에 가계부탭에 '지출'로 반영하거나, 카드 사용금액이 아닌 카드 결제대금을 '지출'로 반영하실 수 있습니다.<br><br>A. 카드 사용시점에 지출로 5,000원을 반영<br>B. 카드대금 결제 시, 결제대금 5,000원을 지출로 반영</p>
