@@ -377,7 +377,7 @@ function pageTx(pg) {
     <input type="hidden" name="id" value="${t.id ?? ''}"><input type="hidden" name="sub" value="${esc(t.sub)}">
     <input type="hidden" name="ts" value="${t.ts}"><input type="hidden" name="cat" value="${esc(t.cat)}"><input type="hidden" name="asset" value="${esc(t.asset)}">
     <div class="seg">${['수입', '지출', '이체'].map(k => `<label><input type="radio" name="type" value="${k}" data-change="txType"${k === t.type ? ' checked' : ''}><span class="${cls(k)}">${k}</span></label>`).join('')}</div>
-    <div class="frow"><span>날짜</span><span class="two">${fld('date', dateLabel(t.ts))}${fld('time', hm(t.ts))}${t.id ? '' : `<button type="button" class="rep${t.rep ? ' on' : ''}" data-act="sheet" data-arg="repMenu">${ICON.rep}<small>${repLabel(t)}</small></button>`}</span></div>
+    <div class="frow"><span>날짜</span><span class="two">${fld('date', dateLabel(t.ts))}${fld('time', hm(t.ts))}${t.id ? '' : `<button type="button" class="rep${t.rep ? ' on' : ''}${t.rep === 'inst' ? ' inst' : ''}" data-act="sheet" data-arg="repMenu">${ICON.rep}<small>${repLabel(t)}</small></button>`}</span></div>
     ${t.id ? '' : `<input type="hidden" name="rep" value="${t.rep || ''}"><input type="hidden" name="months" value="${t.months || ''}"><input type="hidden" name="irate" value="${t.irate || ''}">`}
     ${tr && !t.id ? `<div class="frow"><span>금액</span>${money('amt', t.amt)}<button type="button" class="mini" data-act="feeTog">수수료</button></div>${pg.fee || t.fee ? row('수수료', money('fee', t.fee, '출금 자산에서 지출로 잡힘')) : ''}` : row('금액', money('amt', t.amt))}
     ${tr ? prow('출금', 'asset', t.asset) + prow('입금', 'cat', t.cat) : prow('분류', 'cat', t.sub ? `${t.cat} / ${t.sub}` : t.cat) + prow('자산', 'asset', t.asset)
