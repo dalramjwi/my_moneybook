@@ -191,7 +191,7 @@ function pageRoutine(pg) {
 }
 
 function viewBudget() {
-  const rows = Core.budgetRows(S, V.ym), t = today();
+  const rows = Core.budgetRows(S, V.ym).filter(r => r.cat === '전체' || r.budget), t = today(); // [가계부앱] 2026-11-23 : 예산 0원 분류는 결산에서 숨김 (원본과 같게)
   const pos = t.startsWith(V.ym) ? Number(t.slice(8)) / Number(Core.monthEnd(V.ym).slice(8)) * 100 : null;
   const bar = r => {
     const p = r.budget ? Math.floor(r.spent / r.budget * 100) : 0, over = r.spent > r.budget;
@@ -253,7 +253,7 @@ const budInfo = html => `<p class="binfo"><i>${ICON.budget}</i><span>${html}</sp
 function pageBudgetSet() {
   const row = c => `<li data-act="budEdit" data-arg="${esc(c)}"><span class="m"><b>${esc(budLabel(c))}</b></span><span class="a">${won(S.budgets[c])}</span><span class="pen">${ICON.pen}</span></li>`;
   return `${head('예산', '<button class="ic" data-act="go" data-arg="budAdd" aria-label="예산 추가">＋</button>')}${budInfo('추가된 예산은 <b>가계부탭 - 결산</b>에서 확인하실 수 있습니다.')}
-    <ul class="list">${Object.keys(S.budgets).filter(c => c !== '전체').map(row).join('')}</ul>`;
+    <ul class="list">${Core.budCats(S).map(row).join('')}</ul>`;
 }
 function pageBudAdd() {
   const rest = S.cats.지출.filter(c => S.budgets[c] == null);
@@ -918,6 +918,8 @@ function render() {
   const pg = topPg();
   $('#main').innerHTML = pg ? PAGES[pg.p](pg) : { book: viewBook, stats: viewStats, assets: viewAssets, more: viewMore }[V.tab]();
   for (const b of $('#nav').children) b.classList.toggle('on', b.dataset.arg === V.tab);
+  // [가계부앱] 2026-11-23 : 자판 위에 뜨는 크롬 자동 완성 줄(열쇠·카드·주소 아이콘)이 안 뜨게 모든 입력칸의 자동 완성을 끈다
+  for (const el of $('#main').querySelectorAll?.('form, input, textarea') || []) if (!el.getAttribute('autocomplete')) el.setAttribute('autocomplete', 'off');
   if (pg?.focus) { $(`[name="${pg.focus}"]`)?.focus?.(); delete pg.focus; } // 선택판을 닫은 뒤 다음 입력칸으로
 }
 function done() { save(); if (V.stack.length) history.back(); else render(); }

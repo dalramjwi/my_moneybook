@@ -160,10 +160,12 @@ const Core = (() => {
   // 예산 : [{ cat, budget, spent }]. 맨 앞이 전체. 전체예산은 항상 분류 예산의 합 (예전 자료의 budgets.전체 는 쓰지 않는다)
   function budgetRows(state, ym) {
     const list = state.tx.filter(t => t.ts.startsWith(ym)), spent = Object.fromEntries(catSums(list, '지출'));
-    const b = state.budgets || {}, cats = Object.keys(b).filter(c => c !== '전체');
+    const cats = budCats(state);
     const total = cats.reduce((s, c) => s + budgetOf(state, c, ym), 0);
     return [{ cat: '전체', budget: total, spent: sums(list).expense }, ...cats.map(cat => ({ cat, budget: budgetOf(state, cat, ym), spent: spent[cat] || 0 }))];
   }
+  // [가계부앱] 2026-11-23 : 예산 있는 분류를 지출 분류 순서대로 (분류 목록에 없는 건 뒤에, 넣은 순서)
+  const budCats = state => { const order = state.cats?.지출 || [], rank = c => (order.indexOf(c) + 1 || 1e9); return Object.keys(state.budgets || {}).filter(c => c !== '전체').sort((a, b) => rank(a) - rank(b)); };
   // [가계부앱] 2026-11-23 : 그 달의 예산. 월별 예산을 따로 넣었으면 그 값, 아니면 기본예산
   const budgetOf = (state, cat, ym) => state.budgetM?.[cat]?.[ym] ?? state.budgets?.[cat];
 
@@ -222,7 +224,7 @@ const Core = (() => {
   }
 
   return { HEADER, newState, serialToTs, tsToSerial, rowsToTx, txToRows, addAsset, addCat, importRows, balances, totals, sums, periodSums, byCategory,
-    dAdd, dow, weekStart, shiftYm, monthEnd, addMonths, between, weeksOf, catSums, flow, ledger, balanceAt, card, budgetRows, budgetOf, runRepeats, repeatTs, instPlan, routineDue };
+    dAdd, dow, weekStart, shiftYm, monthEnd, addMonths, between, weeksOf, catSums, flow, ledger, balanceAt, card, budgetRows, budgetOf, budCats, runRepeats, repeatTs, instPlan, routineDue };
 })();
 
 if (typeof module !== 'undefined') module.exports = Core;
