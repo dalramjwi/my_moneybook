@@ -4,3 +4,6 @@ spec/
 *.jpg
 *.json
 !manifest.webmanifest
+android/
+design/
+img/
